@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { trackNewsletterSub } from "@/lib/admin/analytics";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -20,6 +21,13 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    // Track subscriber in analytics
+    trackNewsletterSub({
+      email,
+      timestamp: new Date().toISOString(),
+      source: "website",
+    });
 
     // TODO: Integrate with email service (Mailchimp, ConvertKit, etc.)
     console.log(`[Newsletter] New subscriber: ${email}`);

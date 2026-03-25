@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { WebSiteJsonLd } from "@/components/seo/JsonLd";
+import { PageTracker } from "@/components/analytics/PageTracker";
 import { siteConfig } from "@/lib/constants";
 import "./globals.css";
 
@@ -78,6 +79,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
         <WebSiteJsonLd />
+        <PageTracker />
         <Header />
         <main className="min-h-[calc(100vh-8rem)]">{children}</main>
         <Footer />

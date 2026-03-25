@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
+import { trackAffiliateClick } from "@/lib/admin/analytics";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { productId, program, url } = body;
+    const { productId, program, url, postSlug } = body;
 
     if (!productId || !program || !url) {
       return NextResponse.json(
@@ -12,7 +13,14 @@ export async function POST(request: Request) {
       );
     }
 
-    // TODO: Integrate with analytics service (Plausible, PostHog, etc.)
+    // Track click in analytics
+    trackAffiliateClick({
+      productId,
+      program,
+      timestamp: new Date().toISOString(),
+      postSlug,
+    });
+
     console.log(
       `[Affiliate Click] Product: ${productId}, Program: ${program}, URL: ${url}`
     );
