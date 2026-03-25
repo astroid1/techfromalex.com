@@ -1,11 +1,15 @@
 import Link from "next/link";
-import { siteConfig } from "@/lib/constants";
+import { siteConfig, categories } from "@/lib/constants";
 import { getAllPosts } from "@/lib/content";
 import { PostCard } from "@/components/blog/PostCard";
 import { SignupForm } from "@/components/newsletter/SignupForm";
+import { Badge } from "@/components/ui/badge";
+import { formatDate } from "@/lib/utils";
 
 export default function HomePage() {
-  const latestPosts = getAllPosts().slice(0, 6);
+  const allPosts = getAllPosts();
+  const featuredPost = allPosts[0];
+  const latestPosts = allPosts.slice(1, 7);
 
   return (
     <div className="flex flex-col">
@@ -33,6 +37,57 @@ export default function HomePage() {
               Today&apos;s Deals
             </Link>
           </div>
+        </div>
+      </section>
+
+      {/* Featured Post */}
+      {featuredPost && (
+        <section className="mx-auto w-full max-w-6xl px-4 pt-16">
+          <h2 className="mb-6 text-2xl font-bold">Featured</h2>
+          <Link href={`/blog/${featuredPost.slug}`} className="group block">
+            <div className="grid gap-6 overflow-hidden rounded-lg border border-border bg-card transition-colors hover:bg-card-hover md:grid-cols-2">
+              {featuredPost.image && (
+                <div className="aspect-video overflow-hidden md:aspect-auto md:min-h-[280px]">
+                  <img
+                    src={featuredPost.image}
+                    alt={featuredPost.imageAlt || featuredPost.title}
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                </div>
+              )}
+              <div className="flex flex-col justify-center gap-3 p-6">
+                <Badge variant="secondary" className="w-fit capitalize">
+                  {featuredPost.category}
+                </Badge>
+                <h3 className="text-2xl font-bold tracking-tight text-foreground transition-colors group-hover:text-accent sm:text-3xl">
+                  {featuredPost.title}
+                </h3>
+                <p className="text-muted">{featuredPost.description}</p>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <time dateTime={featuredPost.date}>{formatDate(featuredPost.date)}</time>
+                  <span aria-hidden="true">-</span>
+                  <span>{featuredPost.readingTime} min read</span>
+                </div>
+              </div>
+            </div>
+          </Link>
+        </section>
+      )}
+
+      {/* Category Cards */}
+      <section className="mx-auto w-full max-w-6xl px-4 pt-16">
+        <h2 className="mb-6 text-2xl font-bold">Browse by Category</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {categories.map((cat) => (
+            <Link
+              key={cat.slug}
+              href={`/category/${cat.slug}`}
+              className="rounded-lg border border-border bg-card p-4 transition-colors hover:bg-card-hover hover:border-accent"
+            >
+              <h3 className="font-semibold text-foreground">{cat.name}</h3>
+              <p className="mt-1 text-xs text-muted">{cat.description}</p>
+            </Link>
+          ))}
         </div>
       </section>
 

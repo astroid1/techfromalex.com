@@ -50,10 +50,20 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Built with */}
+          {/* Subscribe */}
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Built with</h3>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <h3 className="text-sm font-semibold text-foreground">Subscribe</h3>
+            <ul className="mt-2 space-y-2">
+              <li>
+                <Link
+                  href="/feed.xml"
+                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  RSS Feed
+                </Link>
+              </li>
+            </ul>
+            <p className="mt-3 text-xs text-muted-foreground">
               Built with Next.js, Tailwind CSS, and Velite.
             </p>
           </div>

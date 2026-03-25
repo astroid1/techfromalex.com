@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { WebSiteJsonLd } from "@/components/seo/JsonLd";
+import { siteConfig } from "@/lib/constants";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -36,6 +38,11 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+  alternates: {
+    types: {
+      "application/rss+xml": "/feed.xml",
+    },
+  },
 };
 
 export default function RootLayout({
@@ -46,6 +53,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <link
+          rel="alternate"
+          type="application/rss+xml"
+          title={siteConfig.name}
+          href={`${siteConfig.url}/feed.xml`}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -64,6 +77,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
+        <WebSiteJsonLd />
         <Header />
         <main className="min-h-[calc(100vh-8rem)]">{children}</main>
         <Footer />

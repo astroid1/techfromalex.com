@@ -8,6 +8,10 @@ import { PostHeader } from "@/components/blog/PostHeader";
 import { PostCard } from "@/components/blog/PostCard";
 import { TOC } from "@/components/blog/TOC";
 import { AffiliateDisclosure } from "@/components/affiliate";
+import { ReadingProgress } from "@/components/blog/ReadingProgress";
+import { ShareButtons } from "@/components/blog/ShareButtons";
+import { Breadcrumbs } from "@/components/blog/Breadcrumbs";
+import { ArticleJsonLd, BreadcrumbJsonLd } from "@/components/seo/JsonLd";
 
 interface PostPageProps {
   params: Promise<{ slug: string }>;
@@ -52,9 +56,33 @@ export default async function PostPage({ params }: PostPageProps) {
 
   const relatedPosts = getRelatedPosts(slug, 3);
 
+  const breadcrumbItems = [
+    { label: "Blog", href: "/blog" },
+    { label: post.category.charAt(0).toUpperCase() + post.category.slice(1), href: `/category/${post.category}` },
+    { label: post.title },
+  ];
+
   return (
-    <article className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
-      <PostHeader
+    <>
+      <ReadingProgress />
+      <ArticleJsonLd
+        title={post.title}
+        description={post.description}
+        date={post.date}
+        updated={post.updated}
+        author={post.author}
+        image={post.image}
+        url={`/blog/${post.slug}`}
+      />
+      <BreadcrumbJsonLd
+        items={breadcrumbItems.map((item) => ({
+          name: item.label,
+          url: item.href || `/blog/${post.slug}`,
+        }))}
+      />
+      <article className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+        <Breadcrumbs items={breadcrumbItems} />
+        <PostHeader
         title={post.title}
         date={post.date}
         author={post.author}
@@ -84,9 +112,13 @@ export default async function PostPage({ params }: PostPageProps) {
         )}
       </div>
 
-      {/* Related posts */}
+      {/* Share + Related */}
+      <div className="mt-10 border-t border-border pt-8">
+        <ShareButtons title={post.title} slug={post.slug} />
+      </div>
+
       {relatedPosts.length > 0 && (
-        <section className="mt-16 border-t border-border pt-10">
+        <section className="mt-10 border-t border-border pt-10">
           <h2 className="mb-6 text-2xl font-bold tracking-tight text-foreground">
             Related Posts
           </h2>
@@ -107,6 +139,7 @@ export default async function PostPage({ params }: PostPageProps) {
           </div>
         </section>
       )}
-    </article>
+      </article>
+    </>
   );
 }
