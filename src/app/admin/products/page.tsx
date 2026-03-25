@@ -2,27 +2,30 @@
 
 import { useState, useMemo } from "react";
 import { products } from "@/data/products";
+import type { Product } from "@/types";
 
 export default function ProductsPage() {
   const [search, setSearch] = useState("");
 
+  const allProducts: Product[] = useMemo(() => Object.values(products), []);
+
   const filtered = useMemo(() => {
-    if (!search) return products;
+    if (!search) return allProducts;
     const q = search.toLowerCase();
-    return products.filter(
+    return allProducts.filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||
         p.brand.toLowerCase().includes(q) ||
         p.category.toLowerCase().includes(q)
     );
-  }, [search]);
+  }, [search, allProducts]);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Products</h1>
-          <p className="text-sm text-muted">{products.length} products in catalog</p>
+          <p className="text-sm text-muted">{allProducts.length} products in catalog</p>
         </div>
       </div>
 

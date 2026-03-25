@@ -94,7 +94,8 @@ function groupByDay(items: { timestamp: string }[]): { date: string; count: numb
     .slice(-30);
 }
 
-function groupByField(items: Record<string, unknown>[], field: string): { key: string; count: number }[] {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function groupByField(items: any[], field: string): { key: string; count: number }[] {
   const counts: Record<string, number> = {};
   items.forEach((item) => {
     const key = String(item[field] || "unknown");
@@ -110,11 +111,11 @@ export function getAnalyticsSummary(): AnalyticsSummary {
   const clicks = getAffiliateClicks();
   const subscribers = getSubscribers();
 
-  const topPages = groupByField(pageViews as Record<string, unknown>[], "path")
+  const topPages = groupByField(pageViews, "path")
     .slice(0, 10)
     .map((item) => ({ path: item.key, count: item.count }));
 
-  const topProducts = groupByField(clicks as Record<string, unknown>[], "productId")
+  const topProducts = groupByField(clicks, "productId")
     .slice(0, 10)
     .map((item) => ({ productId: item.key, count: item.count }));
 

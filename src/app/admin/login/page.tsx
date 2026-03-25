@@ -23,11 +23,13 @@ export default function AdminLoginPage() {
         body: JSON.stringify({ password }),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
         router.push(from);
         router.refresh();
       } else {
-        setError("Invalid password");
+        setError(data.error || "Invalid password");
       }
     } catch {
       setError("Something went wrong");
@@ -42,7 +44,7 @@ export default function AdminLoginPage() {
         <div className="rounded-lg border border-border bg-card p-8">
           <h1 className="mb-1 text-2xl font-bold text-foreground">Admin Login</h1>
           <p className="mb-6 text-sm text-muted">
-            Enter your admin password to continue.
+            Development mode. In production, authentication is handled by Cloudflare Access.
           </p>
 
           <form onSubmit={handleSubmit}>
@@ -71,6 +73,15 @@ export default function AdminLoginPage() {
               {loading ? "Signing in..." : "Sign In"}
             </button>
           </form>
+
+          <div className="mt-6 rounded-md bg-background p-3">
+            <p className="text-xs text-muted">
+              <strong className="text-foreground">Production setup:</strong> Configure Cloudflare Access
+              with <code className="rounded bg-card-hover px-1">CF_ACCESS_TEAM_DOMAIN</code> and{" "}
+              <code className="rounded bg-card-hover px-1">CF_ACCESS_AUD</code> environment variables
+              to enable email-based OTP login.
+            </p>
+          </div>
         </div>
       </div>
     </div>

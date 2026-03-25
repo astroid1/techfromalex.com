@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const navItems = [
   { label: "Dashboard", href: "/admin", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
@@ -12,14 +13,32 @@ const navItems = [
   { label: "Settings", href: "/admin/settings", icon: "M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" },
 ];
 
+interface AuthInfo {
+  email: string;
+  provider: string;
+  logoutUrl: string;
+}
+
 export function AdminSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
+  const [auth, setAuth] = useState<AuthInfo | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/auth")
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (data?.authenticated) {
+          setAuth({ email: data.email, provider: data.provider, logoutUrl: data.logoutUrl });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   async function handleLogout() {
-    await fetch("/api/admin/auth", { method: "DELETE" });
-    router.push("/admin/login");
-    router.refresh();
+    const res = await fetch("/api/admin/auth", { method: "DELETE" });
+    const data = await res.json();
+    // For CF Access, redirect to Cloudflare's logout endpoint
+    window.location.href = data.logoutUrl || "/admin/login";
   }
 
   return (
@@ -65,6 +84,16 @@ export function AdminSidebar() {
 
       {/* Footer */}
       <div className="border-t border-border p-4">
+        {/* User info */}
+        {auth && (
+          <div className="mb-3 rounded-md bg-background px-3 py-2">
+            <p className="truncate text-xs font-medium text-foreground">{auth.email}</p>
+            <p className="text-[10px] text-muted">
+              {auth.provider === "cloudflare-access" ? "Cloudflare Access" : "Dev Mode"}
+            </p>
+          </div>
+        )}
+
         <Link
           href="/"
           className="mb-2 flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-card-hover hover:text-foreground"
