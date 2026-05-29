@@ -22,7 +22,7 @@ export function generatePageMetadata({
   modifiedTime,
   tags,
 }: PageSEOProps): Metadata {
-  const ogImage = image || `${siteConfig.url}/og-default.png`;
+  const ogImage = image || `${siteConfig.url}/og-default.svg`;
 
   return {
     title,
