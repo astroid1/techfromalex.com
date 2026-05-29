@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800" role="img" aria-label="Sony WH-1000XM5">
+  <defs>
+    <linearGradient id="gbae5acb4" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="hsl(316,70%,52%)"/>
+      <stop offset="1" stop-color="hsl(356,65%,38%)"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="800" fill="url(#gbae5acb4)"/>
+  <g fill="#ffffff" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" text-anchor="middle">
+    <text x="400.0" y="386.0" font-size="32" opacity="0.85" font-weight="600" letter-spacing="2">SONY</text>
+    <text x="400.0" y="438.4" font-size="64" font-weight="700">Sony WH-1000XM5</text>
+    
+  </g>
+</svg>

@@ -6,7 +6,7 @@ export const products: Record<string, Product> = {
     name: "MacBook Pro 14\" M4",
     brand: "Apple",
     category: "laptops",
-    image: "/images/products/macbook-pro-m4.jpg",
+    image: "/images/products/macbook-pro-m4.svg",
     price: 1599,
     rating: 4.7,
     description:
@@ -50,7 +50,7 @@ export const products: Record<string, Product> = {
     name: "Sony WH-1000XM5",
     brand: "Sony",
     category: "headphones",
-    image: "/images/products/sony-wh1000xm5.jpg",
+    image: "/images/products/sony-wh1000xm5.svg",
     price: 348,
     rating: 4.6,
     description:
@@ -94,7 +94,7 @@ export const products: Record<string, Product> = {
     name: "Samsung T7 Portable SSD (1TB)",
     brand: "Samsung",
     category: "storage",
-    image: "/images/products/samsung-t7-ssd.jpg",
+    image: "/images/products/samsung-t7-ssd.svg",
     price: 99,
     rating: 4.8,
     description:
@@ -134,7 +134,7 @@ export const products: Record<string, Product> = {
     name: "Logitech MX Master 3S",
     brand: "Logitech",
     category: "peripherals",
-    image: "/images/products/logitech-mx-master-3s.jpg",
+    image: "/images/products/logitech-mx-master-3s.svg",
     price: 99,
     rating: 4.7,
     description:
@@ -178,7 +178,7 @@ export const products: Record<string, Product> = {
     name: "Apple iPad Air (M2)",
     brand: "Apple",
     category: "tablets",
-    image: "/images/products/ipad-air-m2.jpg",
+    image: "/images/products/ipad-air-m2.svg",
     price: 599,
     rating: 4.5,
     description:
@@ -218,7 +218,7 @@ export const products: Record<string, Product> = {
     name: "ASUS ROG Ally X",
     brand: "ASUS",
     category: "gaming",
-    image: "/images/products/asus-rog-ally-x.jpg",
+    image: "/images/products/asus-rog-ally-x.svg",
     price: 799,
     rating: 4.3,
     description:
