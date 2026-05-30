@@ -1,0 +1,58 @@
+---
+import Base from "@/layouts/Base.astro";
+import Container from "@/components/layout/Container.astro";
+import CategoryBadge from "@/components/ui/CategoryBadge.astro";
+import { getDB } from "@/lib/db";
+import { searchContent } from "@/lib/content";
+
+export const prerender = false;
+const db = getDB(Astro.locals);
+const q = (Astro.url.searchParams.get("q") ?? "").trim();
+const results = q ? await searchContent(db, q, 20) : [];
+---
+
+<Base title={q ? `Search: ${q}` : "Search"} description="Search Tech From Alex reviews, guides, and deals." noindex>
+  <Container width="content" class="py-12">
+    <h1 class="font-display text-4xl font-bold tracking-tight text-ink">Search</h1>
+    <form method="get" action="/search" class="mt-6 flex gap-2" role="search">
+      <input
+        type="search"
+        name="q"
+        value={q}
+        placeholder="Search reviews, guides, products…"
+        autofocus
+        aria-label="Search"
+        class="w-full rounded-xl border border-line-strong bg-surface px-4 py-3 text-ink outline-none transition focus-visible:border-accent"
+      />
+      <button class="rounded-xl bg-accent px-5 py-3 font-semibold text-accent-contrast transition hover:brightness-105">
+        Search
+      </button>
+    </form>
+
+    {q && (
+      <p class="mt-6 text-sm text-muted" aria-live="polite">
+        {results.length} result{results.length === 1 ? "" : "s"} for &ldquo;{q}&rdquo;
+      </p>
+    )}
+
+    <ul class="mt-2 divide-y divide-line">
+      {results.map((r) => (
+        <li class="py-5">
+          <a href={`/${r.slug}`} class="group block">
+            <CategoryBadge category={r.category} href={false} />
+            <h2 class="mt-2 font-display text-xl font-semibold text-ink transition group-hover:text-accent-strong">
+              {r.title}
+            </h2>
+            <p
+              class="mt-1 text-sm text-ink-soft [&_mark]:bg-transparent [&_mark]:font-semibold [&_mark]:text-accent-strong"
+              set:html={r.snippet || r.dek || ""}
+            />
+          </a>
+        </li>
+      ))}
+      {q && results.length === 0 && (
+        <li class="py-10 text-muted">No results. Try a different term.</li>
+      )}
+    </ul>
+  </Container>
+</Base>

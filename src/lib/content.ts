@@ -330,3 +330,45 @@ export async function getAllTags(
     .all<{ slug: string; name: string }>();
   return res.results ?? [];
 }
+
+/* ----------------------------------------------------------------- search */
+
+export interface SearchHit {
+  slug: string;
+  title: string;
+  dek: string | null;
+  category: string | null;
+  snippet: string;
+}
+
+/** Full-text search over published content via FTS5 (BM25-ranked). */
+export async function searchContent(
+  db: D1Database,
+  query: string,
+  limit = 10,
+): Promise<SearchHit[]> {
+  const clean = query.replace(/[^\p{L}\p{N}\s]/gu, " ").trim();
+  if (clean.length < 2) return [];
+  const match = clean
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((t) => `${t}*`)
+    .join(" ");
+  try {
+    const res = await db
+      .prepare(
+        `SELECT c.slug, c.title, c.dek, c.category,
+                snippet(content_fts, 3, '<mark>', '</mark>', '…', 8) AS snippet
+         FROM content_fts f
+         JOIN content c ON c.id = f.content_id AND c.status = 'published'
+         WHERE content_fts MATCH ?
+         ORDER BY bm25(content_fts, 0.0, 8.0, 4.0, 1.0, 2.0)
+         LIMIT ?`,
+      )
+      .bind(match, limit)
+      .all<SearchHit>();
+    return res.results ?? [];
+  } catch {
+    return []; // malformed FTS query → no results rather than 500
+  }
+}
