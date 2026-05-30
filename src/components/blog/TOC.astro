@@ -1,0 +1,29 @@
+---
+import type { TocHeading } from "@/lib/render-body";
+
+interface Props {
+  items: TocHeading[];
+}
+const { items } = Astro.props;
+---
+
+{
+  items.length > 1 && (
+    <nav aria-label="On this page" class="text-sm">
+      <p class="mb-3 text-xs font-semibold uppercase tracking-widest text-muted">On this page</p>
+      <ul class="space-y-2 border-l border-line">
+        {items.map((h) => (
+          <li class={h.depth === 3 ? "pl-7" : "pl-4"}>
+            <a
+              href={`#${h.id}`}
+              class="block border-l-2 border-transparent py-0.5 text-ink-soft transition hover:border-accent hover:text-accent-strong"
+              style="margin-left:-2px"
+            >
+              {h.text}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  )
+}

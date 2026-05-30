@@ -1,0 +1,46 @@
+---
+import type { Segment } from "@/lib/render-body";
+import type { Product } from "@/lib/types";
+import ProductCard from "@/components/affiliate/ProductCard.astro";
+import BuyButton from "@/components/affiliate/BuyButton.astro";
+import ComparisonTable from "@/components/affiliate/ComparisonTable.astro";
+import Callout from "@/components/mdx/Callout.astro";
+import ProsCons from "@/components/mdx/ProsCons.astro";
+
+interface Props {
+  segments: Segment[];
+  products: Map<string, Product>;
+}
+const { segments, products } = Astro.props;
+---
+
+<div class="article-body">
+  {
+    segments.map((seg) => {
+      if (seg.kind === "html") {
+        return <div class="prose max-w-none" set:html={seg.html} />;
+      }
+      const p: any = seg.props;
+      switch (seg.name) {
+        case "product-card":
+          return <ProductCard product={products.get(p.id)} />;
+        case "buy-button":
+          return (
+            <div class="my-6">
+              <BuyButton product={products.get(p.id)} />
+            </div>
+          );
+        case "comparison":
+          return (
+            <ComparisonTable products={(p.ids as string[]).map((id) => products.get(id))} />
+          );
+        case "callout":
+          return <Callout type={p.type} title={p.title} bodyHtml={p.bodyHtml} />;
+        case "pros-cons":
+          return <ProsCons pros={p.pros} cons={p.cons} />;
+        default:
+          return null;
+      }
+    })
+  }
+</div>

@@ -1,0 +1,58 @@
+---
+import Base from "@/layouts/Base.astro";
+import Container from "@/components/layout/Container.astro";
+import Breadcrumbs from "@/components/layout/Breadcrumbs.astro";
+import PostGrid from "@/components/blog/PostGrid.astro";
+import Pagination from "@/components/blog/Pagination.astro";
+import JsonLd from "@/components/seo/JsonLd.astro";
+import { getDB } from "@/lib/db";
+import { countPublished, listPublished } from "@/lib/content";
+import { breadcrumbLd } from "@/lib/jsonld";
+
+export const prerender = false;
+const PAGE_SIZE = 9;
+const { category } = Astro.params;
+const db = getDB(Astro.locals);
+
+const cat = category
+  ? await db
+      .prepare("SELECT slug, name, description FROM categories WHERE slug = ?")
+      .bind(category)
+      .first<{ slug: string; name: string; description: string | null }>()
+  : null;
+if (!cat) return Astro.rewrite("/404");
+
+const page = Math.max(1, parseInt(Astro.url.searchParams.get("page") ?? "1", 10) || 1);
+const total = await countPublished(db, { category: cat.slug });
+const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+const items = await listPublished(db, {
+  category: cat.slug,
+  limit: PAGE_SIZE,
+  offset: (page - 1) * PAGE_SIZE,
+});
+
+const origin = (Astro.site ?? new URL(Astro.url.origin)).origin;
+const bc = [
+  { name: "Home", href: "/" },
+  { name: cat.name, href: undefined as string | undefined },
+];
+---
+
+<Base title={cat.name} description={cat.description ?? `${cat.name} from Tech From Alex.`}>
+  <JsonLd
+    slot="head"
+    data={breadcrumbLd([
+      { name: "Home", url: origin + "/" },
+      { name: cat.name, url: `${origin}/category/${cat.slug}` },
+    ])}
+  />
+  <Container width="wide" class="py-12">
+    <Breadcrumbs items={bc} />
+    <h1 class="mt-5 font-display text-4xl font-bold tracking-tight text-ink">{cat.name}</h1>
+    {cat.description && <p class="mt-2 max-w-2xl text-ink-soft">{cat.description}</p>}
+    <div class="mt-8">
+      <PostGrid items={items} empty={`No ${cat.name.toLowerCase()} published yet.`} />
+    </div>
+    <Pagination page={page} totalPages={totalPages} />
+  </Container>
+</Base>

@@ -1,0 +1,43 @@
+---
+import { formatPrice, formatDate } from "@/lib/format";
+import type { ContentFull, Product } from "@/lib/types";
+
+interface Props {
+  content: ContentFull;
+  products: Map<string, Product>;
+}
+const { content } = Astro.props;
+const s = content.structured as { summary?: string; keyPoints?: string[]; isDeal?: boolean };
+const dealPrice = formatPrice(content.dealPriceCents);
+const isDeal = s.isDeal || content.dealPriceCents != null;
+const keyPoints = s.keyPoints ?? [];
+---
+
+<div class="not-prose mb-10 space-y-5">
+  {
+    isDeal && (
+      <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-accent px-6 py-4 text-accent-contrast shadow-[var(--shadow-md)]">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-widest opacity-80">Deal</p>
+          {dealPrice && <p class="font-display text-2xl font-bold">{dealPrice}</p>}
+        </div>
+        {content.dealExpiresAt && (
+          <p class="text-sm opacity-90">Ends {formatDate(content.dealExpiresAt)}</p>
+        )}
+      </div>
+    )
+  }
+  {s.summary && <p class="font-display text-lg leading-snug text-ink">{s.summary}</p>}
+  {
+    keyPoints.length > 0 && (
+      <ul class="space-y-1.5 rounded-2xl border border-line bg-surface p-5 text-sm text-ink-soft">
+        {keyPoints.map((k) => (
+          <li class="flex gap-2">
+            <span class="shrink-0 text-accent-strong">▪</span>
+            <span>{k}</span>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</div>

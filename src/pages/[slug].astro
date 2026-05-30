@@ -1,0 +1,174 @@
+---
+import Base from "@/layouts/Base.astro";
+import Container from "@/components/layout/Container.astro";
+import Breadcrumbs from "@/components/layout/Breadcrumbs.astro";
+import SmartImage from "@/components/ui/SmartImage.astro";
+import CategoryBadge from "@/components/ui/CategoryBadge.astro";
+import AffiliateDisclosure from "@/components/affiliate/AffiliateDisclosure.astro";
+import ProseRenderer from "@/components/content/ProseRenderer.astro";
+import TOC from "@/components/blog/TOC.astro";
+import PostCard from "@/components/blog/PostCard.astro";
+import JsonLd from "@/components/seo/JsonLd.astro";
+import ReviewIntro from "@/components/templates/ReviewIntro.astro";
+import RoundupIntro from "@/components/templates/RoundupIntro.astro";
+import ComparisonIntro from "@/components/templates/ComparisonIntro.astro";
+import NewsIntro from "@/components/templates/NewsIntro.astro";
+import { getDB } from "@/lib/db";
+import {
+  getAuthor,
+  getContentBySlug,
+  getContentProductIds,
+  getProducts,
+  getRelated,
+} from "@/lib/content";
+import { renderBody } from "@/lib/render-body";
+import { formatDate } from "@/lib/format";
+import { CATEGORY_NAMES } from "@/lib/types";
+import { articleLd, breadcrumbLd, itemListLd, productLd } from "@/lib/jsonld";
+
+export const prerender = false;
+
+const { slug } = Astro.params;
+const db = getDB(Astro.locals);
+const content = slug ? await getContentBySlug(db, slug) : null;
+if (!content) return Astro.rewrite("/404");
+
+const s = content.structured as Record<string, any>;
+
+// Collect product ids: relations + structured + inline body directives.
+const relIds = await getContentProductIds(db, content.id);
+const bodyIds = [...content.bodyMd.matchAll(/id="([^"]+)"/g)].map((m) => m[1]);
+const structIds: string[] = [];
+if (s.productId) structIds.push(s.productId);
+if (Array.isArray(s.picks)) for (const p of s.picks) if (p.productId) structIds.push(p.productId);
+if (Array.isArray(s.entrants)) structIds.push(...s.entrants);
+const productIds = [...new Set([...relIds, ...structIds, ...bodyIds])];
+const products = await getProducts(db, productIds);
+
+const { segments, toc } = await renderBody(content.bodyMd, products);
+const author = await getAuthor(db, content.authorId);
+const related = await getRelated(db, content, 3);
+
+const origin = (Astro.site ?? new URL(Astro.url.origin)).origin;
+const heroAbs = content.heroImageUrl
+  ? new URL(content.heroImageUrl, origin).toString()
+  : undefined;
+const catName = content.category ? CATEGORY_NAMES[content.category] : null;
+const featured = s.productId ? (products.get(s.productId) ?? null) : null;
+const hasAffiliate = products.size > 0;
+
+const bc = [
+  { name: "Home", href: "/" },
+  ...(content.category && catName
+    ? [{ name: catName, href: `/category/${content.category}` }]
+    : []),
+  { name: content.title, href: undefined as string | undefined },
+];
+
+// JSON-LD
+const ld: unknown[] = [
+  articleLd(content, author, featured, origin, heroAbs),
+  breadcrumbLd(
+    bc.map((c) => ({ name: c.name, url: `${origin}${c.href ?? `/${content.slug}`}` })),
+  ),
+];
+const firstProduct = [...products.values()][0];
+if (firstProduct) ld.push(productLd(firstProduct, { withContext: true }));
+if (content.type === "roundup" && Array.isArray(s.picks)) {
+  const list = s.picks
+    .map((pk: any, i: number) => ({ product: products.get(pk.productId)!, position: i + 1 }))
+    .filter((x: any) => x.product);
+  if (list.length) ld.push(itemListLd(list));
+}
+---
+
+<Base
+  title={content.seoTitle ?? content.title}
+  description={content.seoDescription ?? content.dek ?? undefined}
+  image={heroAbs}
+  type="article"
+>
+  <JsonLd slot="head" data={ld} />
+
+  <Container width="content" class="pt-8 sm:pt-12">
+    <Breadcrumbs items={bc} />
+    <header class="mt-6 max-w-3xl">
+      <CategoryBadge category={content.category} />
+      <h1 class="mt-3 font-display text-4xl font-bold leading-[1.08] tracking-tight text-ink sm:text-5xl">
+        {content.title}
+      </h1>
+      {content.dek && <p class="mt-4 text-lg leading-relaxed text-ink-soft">{content.dek}</p>}
+      <div class="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+        {author && <span class="font-medium text-ink-soft">By {author.name}</span>}
+        {content.publishedAt && (
+          <>
+            <span aria-hidden="true">·</span>
+            <time datetime={content.publishedAt}>{formatDate(content.publishedAt)}</time>
+          </>
+        )}
+        {content.updatedAt && content.updatedAt.slice(0, 10) !== (content.publishedAt ?? "").slice(0, 10) && (
+          <>
+            <span aria-hidden="true">·</span>
+            <span>Updated {formatDate(content.updatedAt)}</span>
+          </>
+        )}
+      </div>
+    </header>
+  </Container>
+
+  {
+    content.heroImageUrl && (
+      <Container width="wide" class="mt-8">
+        <div class="overflow-hidden rounded-2xl border border-line bg-surface-2">
+          <SmartImage
+            src={content.heroImageUrl}
+            alt={content.heroAlt ?? content.title}
+            width={1280}
+            eager
+            class="aspect-[16/8] w-full object-cover"
+          />
+        </div>
+      </Container>
+    )
+  }
+
+  <Container width="content" class="mt-10 pb-12">
+    <div class="grid gap-12 lg:grid-cols-[minmax(0,1fr)_15rem]">
+      <article class="min-w-0">
+        {hasAffiliate && (
+          <div class="mb-8">
+            <AffiliateDisclosure />
+          </div>
+        )}
+        {content.type === "review" && <ReviewIntro content={content} products={products} />}
+        {content.type === "roundup" && <RoundupIntro content={content} products={products} />}
+        {content.type === "comparison" && <ComparisonIntro content={content} products={products} />}
+        {content.type === "news_deal" && <NewsIntro content={content} products={products} />}
+        <ProseRenderer segments={segments} products={products} />
+      </article>
+
+      {
+        toc.length > 1 && (
+          <aside class="hidden lg:block">
+            <div class="sticky top-24">
+              <TOC items={toc} />
+            </div>
+          </aside>
+        )
+      }
+    </div>
+
+    {
+      related.length > 0 && (
+        <section class="mt-16 border-t border-line pt-10">
+          <h2 class="mb-6 font-display text-2xl font-bold text-ink">Related reading</h2>
+          <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {related.map((r) => (
+              <PostCard item={r} />
+            ))}
+          </div>
+        </section>
+      )
+    }
+  </Container>
+</Base>

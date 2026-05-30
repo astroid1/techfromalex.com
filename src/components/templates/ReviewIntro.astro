@@ -1,0 +1,61 @@
+---
+import VerdictBadge from "@/components/ui/VerdictBadge.astro";
+import type { ContentFull, Product } from "@/lib/types";
+
+interface Props {
+  content: ContentFull;
+  products: Map<string, Product>;
+}
+const { content } = Astro.props;
+const s = content.structured as {
+  verdictSummary?: string;
+  whoItsFor?: string[];
+  whoItsNot?: string[];
+};
+const whoFor = s.whoItsFor ?? [];
+const whoNot = s.whoItsNot ?? [];
+---
+
+<div class="not-prose mb-10 rounded-2xl border border-line bg-surface p-6 shadow-[var(--shadow-sm)]">
+  <div class="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+    <div class="max-w-xl">
+      <p class="text-xs font-semibold uppercase tracking-widest text-muted">Our verdict</p>
+      {s.verdictSummary && (
+        <p class="mt-1.5 font-display text-lg leading-snug text-ink">{s.verdictSummary}</p>
+      )}
+    </div>
+    {content.verdictScore != null && <VerdictBadge score={content.verdictScore} />}
+  </div>
+  {
+    (whoFor.length > 0 || whoNot.length > 0) && (
+      <div class="mt-5 grid gap-5 border-t border-line pt-5 sm:grid-cols-2">
+        {whoFor.length > 0 && (
+          <div>
+            <p class="mb-2 text-sm font-semibold text-ink">Buy it if…</p>
+            <ul class="space-y-1.5 text-sm text-ink-soft">
+              {whoFor.map((w) => (
+                <li class="flex gap-2">
+                  <span style="color:var(--success)" class="shrink-0">✓</span>
+                  <span>{w}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {whoNot.length > 0 && (
+          <div>
+            <p class="mb-2 text-sm font-semibold text-ink">Skip it if…</p>
+            <ul class="space-y-1.5 text-sm text-ink-soft">
+              {whoNot.map((w) => (
+                <li class="flex gap-2">
+                  <span style="color:var(--danger)" class="shrink-0">✕</span>
+                  <span>{w}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    )
+  }
+</div>

@@ -1,0 +1,27 @@
+---
+import Base from "@/layouts/Base.astro";
+import Container from "@/components/layout/Container.astro";
+
+Astro.response.status = 404;
+---
+
+<Base title="Page not found" noindex>
+  <Container width="content" class="py-24 text-center">
+    <p class="font-display text-7xl font-bold text-accent">404</p>
+    <h1 class="mt-4 font-display text-3xl font-bold text-ink">We couldn't find that page</h1>
+    <p class="mx-auto mt-3 max-w-md text-ink-soft">
+      The link may be broken or the page may have moved. Here's where to head next.
+    </p>
+    <div class="mt-8 flex flex-wrap justify-center gap-3">
+      <a href="/" class="rounded-xl bg-accent px-5 py-3 font-semibold text-accent-contrast transition hover:brightness-105">
+        Go home
+      </a>
+      <a href="/blog" class="rounded-xl border border-line-strong px-5 py-3 font-semibold text-ink transition hover:bg-surface-2">
+        Browse reviews
+      </a>
+      <a href="/search" class="rounded-xl border border-line-strong px-5 py-3 font-semibold text-ink transition hover:bg-surface-2">
+        Search
+      </a>
+    </div>
+  </Container>
+</Base>

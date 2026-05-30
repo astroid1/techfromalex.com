@@ -1,0 +1,65 @@
+---
+import BuyButton from "@/components/affiliate/BuyButton.astro";
+import RatingStars from "@/components/ui/RatingStars.astro";
+import { formatPrice } from "@/lib/format";
+import type { Product } from "@/lib/types";
+
+interface Props {
+  products?: (Product | null | undefined)[];
+}
+const { products = [] } = Astro.props;
+const items = products.filter((p): p is Product => Boolean(p));
+
+const specKeys: string[] = [];
+for (const p of items) {
+  for (const k of Object.keys(p.specs)) if (!specKeys.includes(k)) specKeys.push(k);
+}
+---
+
+{
+  items.length > 0 && (
+    <div class="not-prose my-8 overflow-x-auto rounded-2xl border border-line shadow-[var(--shadow-sm)]">
+      <table class="w-full border-collapse text-sm">
+        <caption class="sr-only">Side-by-side product comparison</caption>
+        <thead>
+          <tr class="bg-surface-2">
+            <th scope="col" class="p-3 text-left text-xs font-semibold uppercase tracking-wide text-muted">
+              <span class="sr-only">Attribute</span>
+            </th>
+            {items.map((p) => (
+              <th scope="col" class="min-w-[10rem] p-3 text-left font-display text-base text-ink">
+                {p.name}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="border-t border-line">
+            <th scope="row" class="p-3 text-left font-medium text-muted">Rating</th>
+            {items.map((p) => (
+              <td class="p-3">{p.rating != null ? <RatingStars rating={p.rating} showValue /> : "—"}</td>
+            ))}
+          </tr>
+          <tr class="border-t border-line">
+            <th scope="row" class="p-3 text-left font-medium text-muted">Price</th>
+            {items.map((p) => (
+              <td class="p-3 font-semibold text-ink">{formatPrice(p.priceCents, p.currency) ?? "—"}</td>
+            ))}
+          </tr>
+          {specKeys.map((k) => (
+            <tr class="border-t border-line">
+              <th scope="row" class="p-3 text-left font-medium text-muted">{k}</th>
+              {items.map((p) => <td class="p-3 text-ink-soft">{p.specs[k] ?? "—"}</td>)}
+            </tr>
+          ))}
+          <tr class="border-t border-line bg-surface-2">
+            <th scope="row" class="p-3"><span class="sr-only">Buy</span></th>
+            {items.map((p) => (
+              <td class="p-3">{p.buyUrl ? <BuyButton product={p} label="Check price" /> : null}</td>
+            ))}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  )
+}

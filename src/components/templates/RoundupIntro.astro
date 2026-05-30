@@ -1,0 +1,48 @@
+---
+import RatingStars from "@/components/ui/RatingStars.astro";
+import type { ContentFull, Product, RoundupPick } from "@/lib/types";
+
+interface Props {
+  content: ContentFull;
+  products: Map<string, Product>;
+}
+const { content, products } = Astro.props;
+const s = content.structured as { picks?: RoundupPick[]; criteria?: string[] };
+const picks = (s.picks ?? []).slice().sort((a, b) => a.rank - b.rank);
+const criteria = s.criteria ?? [];
+---
+
+{
+  picks.length > 0 && (
+    <div class="not-prose mb-10 rounded-2xl border border-line bg-surface p-6 shadow-[var(--shadow-sm)]">
+      <p class="text-xs font-semibold uppercase tracking-widest text-muted">Top picks at a glance</p>
+      <ul class="mt-3 divide-y divide-line">
+        {picks.map((pick) => {
+          const p = products.get(pick.productId);
+          return (
+            <li class="flex items-center gap-4 py-3">
+              <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent font-display text-sm font-bold text-accent-contrast">
+                {pick.rank}
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="text-xs font-semibold uppercase tracking-wide text-accent-strong">{pick.award}</p>
+                <p class="font-semibold text-ink">{p?.name ?? pick.productId}</p>
+                {pick.bestFor && <p class="text-sm text-muted">Best for {pick.bestFor.toLowerCase()}</p>}
+              </div>
+              {p?.rating != null && (
+                <div class="hidden sm:block">
+                  <RatingStars rating={p.rating} />
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {criteria.length > 0 && (
+        <p class="mt-4 border-t border-line pt-4 text-sm text-muted">
+          We judged on: {criteria.join(" · ")}.
+        </p>
+      )}
+    </div>
+  )
+}

@@ -1,0 +1,30 @@
+---
+import Base from "@/layouts/Base.astro";
+import Container from "@/components/layout/Container.astro";
+import PostGrid from "@/components/blog/PostGrid.astro";
+import Pagination from "@/components/blog/Pagination.astro";
+import { getDB } from "@/lib/db";
+import { countPublished, listPublished } from "@/lib/content";
+
+export const prerender = false;
+const PAGE_SIZE = 9;
+const db = getDB(Astro.locals);
+const page = Math.max(1, parseInt(Astro.url.searchParams.get("page") ?? "1", 10) || 1);
+const total = await countPublished(db);
+const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+const items = await listPublished(db, { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE });
+---
+
+<Base
+  title={page > 1 ? `All articles — page ${page}` : "All articles"}
+  description="Every Tech From Alex review, buying guide, and comparison in one place."
+>
+  <Container width="wide" class="py-12">
+    <h1 class="font-display text-4xl font-bold tracking-tight text-ink">All articles</h1>
+    <p class="mt-2 text-ink-soft">{total} reviews, guides &amp; comparisons.</p>
+    <div class="mt-8">
+      <PostGrid items={items} empty="No articles published yet." />
+    </div>
+    <Pagination page={page} totalPages={totalPages} />
+  </Container>
+</Base>

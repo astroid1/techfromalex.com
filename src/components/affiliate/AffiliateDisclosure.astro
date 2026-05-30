@@ -1,0 +1,18 @@
+---
+interface Props {
+  compact?: boolean;
+}
+const { compact = false } = Astro.props;
+---
+
+<p
+  class={`not-prose flex items-start gap-2 rounded-lg border border-line bg-surface-2 text-muted ${compact ? "px-3 py-2 text-xs" : "px-4 py-3 text-sm"}`}
+>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="mt-0.5 shrink-0">
+    <path d="M12 16v-5m0-4h.01M12 3a9 9 0 100 18 9 9 0 000-18z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+  </svg>
+  <span>
+    <strong class="font-semibold text-ink-soft">Disclosure:</strong> When you buy through links on Tech From Alex
+    we may earn an affiliate commission. It never changes our verdicts — we only recommend gear we'd buy ourselves.
+  </span>
+</p>

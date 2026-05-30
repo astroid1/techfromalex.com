@@ -1,0 +1,62 @@
+---
+import Container from "./Container.astro";
+import AffiliateDisclosure from "@/components/affiliate/AffiliateDisclosure.astro";
+
+const year = 2026;
+const cols = [
+  {
+    title: "Explore",
+    links: [
+      { label: "Reviews", href: "/category/reviews" },
+      { label: "Guides", href: "/category/guides" },
+      { label: "Comparisons", href: "/category/comparisons" },
+      { label: "Deals", href: "/deals" },
+    ],
+  },
+  {
+    title: "Site",
+    links: [
+      { label: "All articles", href: "/blog" },
+      { label: "Search", href: "/search" },
+      { label: "About", href: "/about" },
+      { label: "RSS feed", href: "/rss.xml" },
+    ],
+  },
+];
+---
+
+<footer class="mt-20 border-t border-line bg-surface">
+  <Container width="wide" class="py-12">
+    <div class="grid gap-10 sm:grid-cols-[1.5fr_1fr_1fr]">
+      <div>
+        <a href="/" class="flex items-center gap-2.5 font-display text-lg font-bold text-ink">
+          <span class="grid h-8 w-8 place-items-center rounded-lg bg-accent text-sm text-accent-contrast">TA</span>
+          Tech From Alex
+        </a>
+        <p class="mt-3 max-w-xs text-sm leading-relaxed text-muted">
+          Honest, hands-on tech reviews, buying guides, and deals — so you can buy with confidence.
+        </p>
+      </div>
+      {
+        cols.map((col) => (
+          <nav aria-label={col.title}>
+            <h2 class="mb-3 text-xs font-semibold uppercase tracking-widest text-muted">{col.title}</h2>
+            <ul class="space-y-2">
+              {col.links.map((l) => (
+                <li>
+                  <a href={l.href} class="text-sm text-ink-soft transition hover:text-accent-strong">{l.label}</a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ))
+      }
+    </div>
+
+    <div class="mt-10">
+      <AffiliateDisclosure compact />
+    </div>
+
+    <p class="mt-8 text-xs text-muted">© {year} Tech From Alex. All rights reserved.</p>
+  </Container>
+</footer>

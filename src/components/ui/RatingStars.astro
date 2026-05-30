@@ -1,0 +1,30 @@
+---
+interface Props {
+  rating: number | null | undefined; // 0..5
+  size?: number;
+  showValue?: boolean;
+}
+const { rating, size = 16, showValue = false } = Astro.props;
+const r = Math.max(0, Math.min(5, rating ?? 0));
+const pct = (r / 5) * 100;
+---
+
+{
+  rating != null && (
+    <span class="inline-flex items-center gap-1.5 align-middle" role="img" aria-label={`Rated ${r} out of 5`}>
+      <span class="relative inline-block" style={`width:${size * 5}px;height:${size}px`}>
+        <span class="absolute inset-0 flex text-line-strong">
+          {[0, 1, 2, 3, 4].map(() => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.1 6.6.9-4.8 4.6 1.2 6.6L12 17.8 6.1 20.2l1.2-6.6L2.5 9l6.6-.9L12 2z"/></svg>
+          ))}
+        </span>
+        <span class="absolute inset-0 flex overflow-hidden text-accent" style={`width:${pct}%`}>
+          {[0, 1, 2, 3, 4].map(() => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" class="shrink-0"><path d="M12 2l2.9 6.1 6.6.9-4.8 4.6 1.2 6.6L12 17.8 6.1 20.2l1.2-6.6L2.5 9l6.6-.9L12 2z"/></svg>
+          ))}
+        </span>
+      </span>
+      {showValue && <span class="text-sm font-medium text-muted">{r.toFixed(1)}</span>}
+    </span>
+  )
+}

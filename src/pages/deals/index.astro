@@ -1,0 +1,72 @@
+---
+import Base from "@/layouts/Base.astro";
+import Container from "@/components/layout/Container.astro";
+import AffiliateDisclosure from "@/components/affiliate/AffiliateDisclosure.astro";
+import SmartImage from "@/components/ui/SmartImage.astro";
+import RatingStars from "@/components/ui/RatingStars.astro";
+import BuyButton from "@/components/affiliate/BuyButton.astro";
+import PostGrid from "@/components/blog/PostGrid.astro";
+import { getDB } from "@/lib/db";
+import { getProducts, listPublished } from "@/lib/content";
+import { formatPrice } from "@/lib/format";
+import type { Product } from "@/lib/types";
+
+export const prerender = false;
+const db = getDB(Astro.locals);
+
+const idRes = await db
+  .prepare("SELECT id FROM products ORDER BY rating DESC LIMIT 24")
+  .all<{ id: string }>();
+const ids = (idRes.results ?? []).map((r) => r.id);
+const products = await getProducts(db, ids);
+const items = ids.map((id) => products.get(id)).filter((p): p is Product => Boolean(p));
+const dealPosts = await listPublished(db, { category: "deals", limit: 12 });
+---
+
+<Base
+  title="Best Tech Deals"
+  description="Our editors' current tech picks worth your money — linked straight to the retailer for live prices."
+>
+  <Container width="wide" class="py-12">
+    <h1 class="font-display text-4xl font-bold tracking-tight text-ink">Today's best tech deals</h1>
+    <p class="mt-2 max-w-2xl text-ink-soft">
+      Our editors' current picks worth your money. Prices move fast, so we link straight to the
+      retailer — you'll always see the live price there.
+    </p>
+    <div class="mt-6">
+      <AffiliateDisclosure />
+    </div>
+
+    <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      {
+        items.map((p) => (
+          <div class="flex flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow-sm)] transition hover:-translate-y-1 hover:shadow-[var(--shadow-lg)]">
+            <div class="aspect-square border-b border-line bg-surface-2">
+              <SmartImage src={p.imageUrl} alt={p.name} width={420} class="h-full w-full object-contain p-6" />
+            </div>
+            <div class="flex flex-1 flex-col gap-2 p-5">
+              {p.brand && <p class="text-xs font-semibold uppercase tracking-widest text-muted">{p.brand}</p>}
+              <h2 class="font-display text-lg font-semibold leading-tight text-ink">{p.name}</h2>
+              {p.rating != null && <RatingStars rating={p.rating} showValue />}
+              <div class="mt-auto flex items-center justify-between gap-3 pt-2">
+                <span class="text-lg font-bold text-ink">{formatPrice(p.priceCents, p.currency) ?? ""}</span>
+                <BuyButton product={p} label="Check price" />
+              </div>
+            </div>
+          </div>
+        ))
+      }
+    </div>
+
+    {
+      dealPosts.length > 0 && (
+        <section class="mt-16">
+          <h2 class="font-display text-2xl font-bold text-ink">Deal coverage</h2>
+          <div class="mt-6">
+            <PostGrid items={dealPosts} />
+          </div>
+        </section>
+      )
+    }
+  </Container>
+</Base>

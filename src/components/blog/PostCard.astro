@@ -1,0 +1,43 @@
+---
+import SmartImage from "@/components/ui/SmartImage.astro";
+import CategoryBadge from "@/components/ui/CategoryBadge.astro";
+import { formatDate } from "@/lib/format";
+import type { ContentSummary } from "@/lib/types";
+
+interface Props {
+  item: ContentSummary;
+  featured?: boolean;
+}
+const { item, featured = false } = Astro.props;
+const href = `/${item.slug}`;
+---
+
+<article
+  class={`group flex flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow-sm)] transition duration-200 hover:-translate-y-1 hover:border-line-strong hover:shadow-[var(--shadow-lg)] ${featured ? "sm:flex-row" : ""}`}
+>
+  <a href={href} class={`block overflow-hidden bg-surface-2 ${featured ? "sm:w-3/5" : ""}`}>
+    <div class="relative aspect-[16/10] h-full w-full">
+      <SmartImage
+        src={item.heroImageUrl}
+        alt={item.heroAlt ?? item.title}
+        width={featured ? 900 : 600}
+        class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
+      />
+      {item.verdictScore != null && (
+        <span class="absolute right-3 top-3 rounded-lg bg-accent px-2.5 py-1 font-display text-sm font-bold text-accent-contrast shadow-[var(--shadow-md)]">
+          {item.verdictScore.toFixed(1)}
+        </span>
+      )}
+    </div>
+  </a>
+  <div class={`flex flex-1 flex-col gap-2 p-5 ${featured ? "sm:justify-center sm:p-8" : ""}`}>
+    <div class="flex items-center gap-3 text-xs text-muted">
+      <CategoryBadge category={item.category} href={false} />
+      {item.publishedAt && <time datetime={item.publishedAt}>{formatDate(item.publishedAt)}</time>}
+    </div>
+    <h3 class={`font-display font-semibold leading-tight text-ink ${featured ? "text-2xl sm:text-3xl" : "text-xl"}`}>
+      <a href={href} class="transition hover:text-accent-strong">{item.title}</a>
+    </h3>
+    {item.dek && <p class="line-clamp-2 text-sm leading-relaxed text-ink-soft">{item.dek}</p>}
+  </div>
+</article>

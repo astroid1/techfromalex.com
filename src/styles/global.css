@@ -1,19 +1,200 @@
 @import "tailwindcss";
+@import "@fontsource-variable/fraunces";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
 @plugin "@tailwindcss/typography";
 
-/* Minimal editorial tokens — the full brand system lands in Phase 2. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ============================================================== Tokens === */
 :root {
   --paper: #fbfaf7;
+  --surface: #ffffff;
+  --surface-2: #f4f1ea;
   --ink: #1a1714;
-  --accent: #d98324;
-}
+  --ink-soft: #423d36;
+  --muted: #6b6358;
+  --line: #e6e0d4;
+  --line-strong: #d6cdbd;
 
-html {
+  --accent: #c2680e; /* amber — fills, badges, verdict */
+  --accent-strong: #934d0c; /* amber text/links on light (AA on paper) */
+  --accent-contrast: #fffaf3; /* text on accent fills */
+
+  --success: #2f7d4f;
+  --danger: #b3402e;
+
+  --cat-reviews: #b45309;
+  --cat-guides: #0f766e;
+  --cat-comparisons: #6d28d9;
+  --cat-deals: #15803d;
+  --cat-news: #1d4ed8;
+
+  --shadow-sm: 0 1px 2px rgba(26, 23, 20, 0.06), 0 1px 3px rgba(26, 23, 20, 0.04);
+  --shadow-md: 0 4px 12px rgba(26, 23, 20, 0.08), 0 2px 6px rgba(26, 23, 20, 0.05);
+  --shadow-lg: 0 12px 32px rgba(26, 23, 20, 0.12), 0 6px 14px rgba(26, 23, 20, 0.07);
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
   color-scheme: light;
 }
 
-body {
+.dark {
+  --paper: #14110d;
+  --surface: #1c1813;
+  --surface-2: #241f18;
+  --ink: #f3eee4;
+  --ink-soft: #cabfae;
+  --muted: #9c917f;
+  --line: #322c22;
+  --line-strong: #443c2f;
+
+  --accent: #e8a33d;
+  --accent-strong: #f0b45c;
+  --accent-contrast: #1a1206;
+
+  --success: #5fbd84;
+  --danger: #e5806f;
+
+  --cat-reviews: #e8a33d;
+  --cat-guides: #5ed0c2;
+  --cat-comparisons: #b69bf5;
+  --cat-deals: #6ee7a0;
+  --cat-news: #93b4ff;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.6);
+  color-scheme: dark;
+}
+
+/* ====================================================== Theme mapping === */
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+
+  --font-display: "Fraunces Variable", ui-serif, Georgia, serif;
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+}
+
+/* ============================================================== Base === */
+html {
   background: var(--paper);
   color: var(--ink);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  letter-spacing: -0.01em;
+}
+
+a {
+  color: inherit;
+}
+
+/* Focus: one consistent, visible recipe everywhere. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 6px;
+  border: 2px solid var(--paper);
+}
+
+/* ======================================================== Prose === */
+.prose {
+  --tw-prose-body: var(--ink-soft);
+  --tw-prose-headings: var(--ink);
+  --tw-prose-links: var(--accent-strong);
+  --tw-prose-bold: var(--ink);
+  --tw-prose-counters: var(--muted);
+  --tw-prose-bullets: var(--line-strong);
+  --tw-prose-hr: var(--line);
+  --tw-prose-quotes: var(--ink);
+  --tw-prose-quote-borders: var(--accent);
+  --tw-prose-captions: var(--muted);
+  --tw-prose-code: var(--ink);
+  --tw-prose-th-borders: var(--line-strong);
+  --tw-prose-td-borders: var(--line);
+  font-size: 1.0625rem;
+  line-height: 1.75;
+}
+.prose :where(h2) {
+  margin-top: 2.25em;
+  font-size: 1.6rem;
+}
+.prose :where(h3) {
+  font-size: 1.25rem;
+}
+.prose :where(a):hover {
+  text-decoration-thickness: 2px;
+}
+.prose :where(table) {
+  font-size: 0.95rem;
+}
+.prose :where(th) {
+  background: var(--surface-2);
+}
+
+/* ======================================================== Motion === */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 0.5s var(--ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

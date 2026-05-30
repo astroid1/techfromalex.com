@@ -1,14 +1,48 @@
 ---
 import "../styles/global.css";
+import { ClientRouter } from "astro:transitions";
+import Header from "@/components/layout/Header.astro";
+import Footer from "@/components/layout/Footer.astro";
 
 interface Props {
   title?: string;
   description?: string;
+  image?: string | null;
+  type?: "website" | "article";
+  noindex?: boolean;
 }
+const SITE = "Tech From Alex";
+const site = Astro.site ?? new URL(Astro.url.origin);
 const {
-  title = "Tech From Alex",
-  description = "Tech reviews, guides, and deals to help you buy smarter.",
+  title,
+  description = "Honest, hands-on tech reviews, buying guides, and deals to help you buy smarter.",
+  image,
+  type = "website",
+  noindex = false,
 } = Astro.props;
+
+const canonical = new URL(Astro.url.pathname, site).toString();
+const fullTitle = title ? `${title} | ${SITE}` : `${SITE} — Tech Reviews, Guides & Deals`;
+const ogImage = image ?? null;
+
+const websiteLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: SITE,
+  url: site.toString(),
+  potentialAction: {
+    "@type": "SearchAction",
+    target: `${site.origin}/search?q={query}`,
+    "query-input": "required name=query",
+  },
+};
+const orgLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: SITE,
+  url: site.toString(),
+  logo: new URL("/icon.png", site).toString(),
+};
 ---
 
 <!doctype html>
@@ -16,11 +50,54 @@ const {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title}</title>
+    <title>{fullTitle}</title>
     <meta name="description" content={description} />
-    <link rel="icon" href="/favicon.ico" />
+    <link rel="canonical" href={canonical} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+
+    <meta property="og:site_name" content={SITE} />
+    <meta property="og:type" content={type} />
+    <meta property="og:title" content={title ?? SITE} />
+    <meta property="og:description" content={description} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta property="og:url" content={canonical} />
+    <meta name="twitter:card" content={ogImage ? "summary_large_image" : "summary"} />
+    <meta name="twitter:title" content={title ?? SITE} />
+    <meta name="twitter:description" content={description} />
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
+
+    <meta name="theme-color" content="#c2680e" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#14110d" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="alternate" type="application/rss+xml" title={`${SITE} — RSS`} href="/rss.xml" />
+
+    <script is:inline>
+      (function () {
+        try {
+          var t = localStorage.getItem("theme");
+          if (t === "dark" || (!t && matchMedia("(prefers-color-scheme: dark)").matches))
+            document.documentElement.classList.add("dark");
+        } catch (e) {}
+      })();
+      document.addEventListener("astro:after-swap", function () {
+        try {
+          var t = localStorage.getItem("theme");
+          var d = t === "dark" || (!t && matchMedia("(prefers-color-scheme: dark)").matches);
+          document.documentElement.classList.toggle("dark", d);
+        } catch (e) {}
+      });
+    </script>
+
+    <ClientRouter />
+    <script type="application/ld+json" set:html={JSON.stringify(websiteLd)} is:inline />
+    <script type="application/ld+json" set:html={JSON.stringify(orgLd)} is:inline />
+    <slot name="head" />
   </head>
-  <body>
-    <slot />
+  <body class="flex min-h-[100dvh] flex-col">
+    <Header />
+    <main class="flex-1">
+      <slot />
+    </main>
+    <Footer />
   </body>
 </html>

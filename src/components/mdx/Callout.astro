@@ -1,0 +1,29 @@
+---
+interface Props {
+  type?: "info" | "tip" | "warning" | "danger";
+  title?: string | null;
+  bodyHtml?: string;
+}
+const { type = "info", title, bodyHtml = "" } = Astro.props;
+
+const styles: Record<string, { accent: string; icon: string }> = {
+  info: { accent: "var(--cat-news)", icon: "M12 16v-5m0-4h.01" },
+  tip: { accent: "var(--success)", icon: "M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8L12 14.6 7 18.2l1.9-5.8L4 8.8h6.1L12 3z" },
+  warning: { accent: "var(--accent)", icon: "M12 9v4m0 4h.01M10.3 3.9L2.6 17a2 2 0 001.7 3h15.4a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" },
+  danger: { accent: "var(--danger)", icon: "M12 9v4m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z" },
+};
+const s = styles[type] ?? styles.info;
+---
+
+<aside
+  class="not-prose my-6 flex gap-3 rounded-xl border border-line bg-surface-2 p-4"
+  style={`border-left: 4px solid ${s.accent};`}
+>
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" class="mt-0.5 shrink-0" style={`color:${s.accent}`}>
+    <path d={s.icon} stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+  </svg>
+  <div class="min-w-0">
+    {title && <p class="mb-1 font-semibold text-ink">{title}</p>}
+    <div class="text-sm leading-relaxed text-ink-soft [&_a]:text-accent-strong [&_a]:underline" set:html={bodyHtml} />
+  </div>
+</aside>

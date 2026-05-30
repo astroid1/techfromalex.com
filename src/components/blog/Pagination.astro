@@ -1,0 +1,34 @@
+---
+interface Props {
+  page: number;
+  totalPages: number;
+}
+const { page, totalPages } = Astro.props;
+
+const link = (p: number) => {
+  const u = new URL(Astro.url);
+  if (p <= 1) u.searchParams.delete("page");
+  else u.searchParams.set("page", String(p));
+  return u.pathname + (u.search || "");
+};
+const btn =
+  "inline-flex items-center gap-1.5 rounded-xl border border-line-strong px-4 py-2 text-sm font-medium text-ink transition hover:bg-surface-2";
+---
+
+{
+  totalPages > 1 && (
+    <nav class="mt-10 flex items-center justify-between" aria-label="Pagination">
+      {page > 1 ? (
+        <a href={link(page - 1)} class={btn} rel="prev">← Newer</a>
+      ) : (
+        <span />
+      )}
+      <span class="text-sm text-muted">Page {page} of {totalPages}</span>
+      {page < totalPages ? (
+        <a href={link(page + 1)} class={btn} rel="next">Older →</a>
+      ) : (
+        <span />
+      )}
+    </nav>
+  )
+}

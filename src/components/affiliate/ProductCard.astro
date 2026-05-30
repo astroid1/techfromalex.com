@@ -1,0 +1,49 @@
+---
+import SmartImage from "@/components/ui/SmartImage.astro";
+import RatingStars from "@/components/ui/RatingStars.astro";
+import BuyButton from "@/components/affiliate/BuyButton.astro";
+import { formatPrice } from "@/lib/format";
+import type { Product } from "@/lib/types";
+
+interface Props {
+  product?: Product | null;
+  award?: string | null;
+}
+const { product, award } = Astro.props;
+const price = product ? formatPrice(product.priceCents, product.currency) : null;
+---
+
+{
+  product && (
+    <aside class="not-prose my-8 overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow-md)] transition hover:shadow-[var(--shadow-lg)]">
+      {award && (
+        <div class="bg-accent px-4 py-1.5 text-center text-xs font-bold uppercase tracking-widest text-accent-contrast">
+          {award}
+        </div>
+      )}
+      <div class="grid gap-0 sm:grid-cols-[210px_1fr]">
+        <div class="aspect-square border-b border-line bg-surface-2 sm:border-b-0 sm:border-r">
+          <SmartImage src={product.imageUrl} alt={product.name} width={420} class="h-full w-full object-contain p-6" />
+        </div>
+        <div class="flex flex-col gap-3 p-5">
+          <div>
+            {product.brand && (
+              <p class="text-xs font-semibold uppercase tracking-widest text-muted">{product.brand}</p>
+            )}
+            <h3 class="font-display text-xl font-semibold leading-tight text-ink">{product.name}</h3>
+          </div>
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+            {product.rating != null && <RatingStars rating={product.rating} showValue />}
+            {price && <span class="text-lg font-bold text-ink">{price}</span>}
+          </div>
+          {product.description && (
+            <p class="line-clamp-3 text-sm leading-relaxed text-ink-soft">{product.description}</p>
+          )}
+          <div class="mt-auto pt-1">
+            <BuyButton product={product} />
+          </div>
+        </div>
+      </div>
+    </aside>
+  )
+}

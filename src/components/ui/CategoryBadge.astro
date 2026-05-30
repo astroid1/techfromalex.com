@@ -1,0 +1,28 @@
+---
+import { CATEGORY_NAMES, type CategorySlug } from "@/lib/types";
+
+interface Props {
+  category: CategorySlug | string | null | undefined;
+  href?: boolean;
+}
+const { category, href = true } = Astro.props;
+const slug = (category ?? "") as CategorySlug;
+const name = CATEGORY_NAMES[slug] ?? category ?? "";
+const known = slug in CATEGORY_NAMES;
+const style = known
+  ? `color: var(--cat-${slug}); background: color-mix(in srgb, var(--cat-${slug}) 13%, transparent);`
+  : "";
+const Tag = href && known ? "a" : "span";
+---
+
+{
+  name && (
+    <Tag
+      href={href && known ? `/category/${slug}` : undefined}
+      class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide transition hover:brightness-95"
+      style={style}
+    >
+      {name}
+    </Tag>
+  )
+}

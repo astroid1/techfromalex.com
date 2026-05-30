@@ -1,0 +1,40 @@
+---
+import Base from "@/layouts/Base.astro";
+import Container from "@/components/layout/Container.astro";
+import Breadcrumbs from "@/components/layout/Breadcrumbs.astro";
+import PostGrid from "@/components/blog/PostGrid.astro";
+import Pagination from "@/components/blog/Pagination.astro";
+import { getDB } from "@/lib/db";
+import { countPublished, listPublished } from "@/lib/content";
+
+export const prerender = false;
+const PAGE_SIZE = 9;
+const { tag } = Astro.params;
+const db = getDB(Astro.locals);
+
+const tagRow = tag
+  ? await db.prepare("SELECT slug, name FROM tags WHERE slug = ?").bind(tag).first<{ slug: string; name: string }>()
+  : null;
+if (!tagRow) return Astro.rewrite("/404");
+
+const page = Math.max(1, parseInt(Astro.url.searchParams.get("page") ?? "1", 10) || 1);
+const total = await countPublished(db, { tag: tagRow.slug });
+const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+const items = await listPublished(db, {
+  tag: tagRow.slug,
+  limit: PAGE_SIZE,
+  offset: (page - 1) * PAGE_SIZE,
+});
+---
+
+<Base title={`${tagRow.name} articles`} description={`Everything tagged ${tagRow.name} on Tech From Alex.`}>
+  <Container width="wide" class="py-12">
+    <Breadcrumbs items={[{ name: "Home", href: "/" }, { name: tagRow.name }]} />
+    <p class="mt-5 text-sm font-semibold uppercase tracking-widest text-accent-strong">Tag</p>
+    <h1 class="mt-1 font-display text-4xl font-bold tracking-tight text-ink">{tagRow.name}</h1>
+    <div class="mt-8">
+      <PostGrid items={items} empty="No articles with this tag yet." />
+    </div>
+    <Pagination page={page} totalPages={totalPages} />
+  </Container>
+</Base>

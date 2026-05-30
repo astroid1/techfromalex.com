@@ -1,0 +1,42 @@
+---
+import Base from "@/layouts/Base.astro";
+import Container from "@/components/layout/Container.astro";
+import { getDB } from "@/lib/db";
+import { getAuthor } from "@/lib/content";
+
+export const prerender = false;
+const db = getDB(Astro.locals);
+const author = await getAuthor(db, "alex");
+---
+
+<Base title="About" description="The story and standards behind Tech From Alex.">
+  <Container width="prose" class="py-12 sm:py-16">
+    <p class="text-sm font-semibold uppercase tracking-widest text-accent-strong">About</p>
+    <h1 class="mt-2 font-display text-4xl font-bold tracking-tight text-ink sm:text-5xl">
+      Tech advice without the hype
+    </h1>
+    <div class="prose mt-8 max-w-none">
+      <p>
+        Tech From Alex exists for one reason: to help you spend your money on the right gear.
+        No sponsored fluff, no spec-sheet regurgitation — just hands-on testing and honest verdicts.
+      </p>
+      <h2>How we review</h2>
+      <p>
+        We buy or borrow the products we cover and live with them long enough to find the things
+        a spec sheet never tells you. Every review ends with a clear verdict and who it's actually for.
+      </p>
+      <h2>How we make money</h2>
+      <p>
+        When you buy through links on this site, we may earn an affiliate commission at no extra
+        cost to you. It never influences our verdicts — we only recommend gear we'd buy ourselves,
+        and we'll always tell you when something isn't worth it.
+      </p>
+      {author?.bio && (
+        <>
+          <h2>Who's behind it</h2>
+          <p>{author.bio}</p>
+        </>
+      )}
+    </div>
+  </Container>
+</Base>
