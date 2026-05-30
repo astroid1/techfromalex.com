@@ -12,6 +12,7 @@ import {
   productIdsInBody,
 } from "@/lib/admin";
 import { assertReferences, ReferentialError } from "@/lib/validate";
+import { generateDraft } from "@/lib/ai/generate";
 
 export const prerender = false;
 const { id } = Astro.params;
@@ -19,7 +20,7 @@ const db = getDB(Astro.locals);
 const env = getEnv(Astro.locals);
 const user = Astro.locals.user;
 let notice: string | null = null;
-let error: string | null = null;
+let error: string | null = Astro.url.searchParams.get("gen_error");
 
 let c = await db.prepare("SELECT * FROM content WHERE id = ?").bind(id).first<any>();
 if (!c) return Astro.redirect("/admin/content");
@@ -32,9 +33,16 @@ if (Astro.request.method === "POST") {
     await removeFts(db, id!);
     await db.prepare("DELETE FROM content WHERE id = ?").bind(id).run();
     return Astro.redirect("/admin/content");
-  }
-
-  const title = String(f.get("title") ?? "").trim();
+  } else if (action === "ai_generate") {
+    try {
+      await generateDraft(env, db, id!);
+      c = await db.prepare("SELECT * FROM content WHERE id = ?").bind(id).first<any>();
+      notice = "AI draft generated — review and edit below.";
+    } catch (e) {
+      error = (e as Error).message;
+    }
+  } else {
+    const title = String(f.get("title") ?? "").trim();
   const slugInput = slugify(String(f.get("slug") ?? "")) || slugify(title);
   const dek = String(f.get("dek") ?? "").trim() || null;
   const category = String(f.get("category") ?? "") || null;
@@ -127,6 +135,7 @@ if (Astro.request.method === "POST") {
       c = await db.prepare("SELECT * FROM content WHERE id = ?").bind(id).first<any>();
       notice = action === "publish" ? "Published — live now." : action === "unpublish" ? "Unpublished." : "Saved.";
     }
+  }
   }
 }
 
@@ -235,6 +244,7 @@ const input =
           {c.status === "draft" && (
             <button name="__action" value="submit_review" class="w-full rounded-lg border border-line-strong px-3 py-2 text-sm font-semibold transition hover:bg-surface-2">Submit for review</button>
           )}
+          <button name="__action" value="ai_generate" class="w-full rounded-lg border border-line-strong px-3 py-2 text-sm font-semibold text-accent-strong transition hover:bg-surface-2">✨ Regenerate with AI</button>
         </div>
         <div class="mt-3 flex gap-3 text-sm">
           <a href={`/admin/content/${id}/preview`} class="text-accent-strong hover:underline">Preview</a>

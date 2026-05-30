@@ -1,9 +1,10 @@
 ---
 import AdminLayout from "@/layouts/AdminLayout.astro";
-import { getDB } from "@/lib/db";
+import { getDB, getEnv } from "@/lib/db";
 import { ulid, nowIso } from "@/lib/ids";
 import { slugify } from "@/lib/format";
 import { uniqueSlug } from "@/lib/admin";
+import { generateDraft } from "@/lib/ai/generate";
 
 export const prerender = false;
 const db = getDB(Astro.locals);
@@ -58,6 +59,15 @@ if (Astro.request.method === "POST") {
           .prepare(`INSERT OR IGNORE INTO content_affiliate_profiles (content_id,affiliate_profile_id) VALUES (?,?)`)
           .bind(id, profileId)
           .run();
+      }
+      if (String(f.get("__action") ?? "create") === "generate") {
+        try {
+          await generateDraft(getEnv(Astro.locals), db, id);
+        } catch (e) {
+          return Astro.redirect(
+            `/admin/content/${id}?gen_error=${encodeURIComponent((e as Error).message)}`,
+          );
+        }
       }
       return Astro.redirect(`/admin/content/${id}`);
     } catch (e) {
