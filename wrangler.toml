@@ -1,0 +1,39 @@
+name = "techfromalex-com"
+main = "./dist/_worker.js/index.js"
+compatibility_date = "2026-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Astro SSR output + static assets served from the same Worker.
+[assets]
+binding = "ASSETS"
+directory = "./dist"
+
+[observability]
+enabled = true
+
+# --- Bindings -------------------------------------------------------------
+[[d1_databases]]
+binding = "DB"
+database_name = "techfromalex_db"
+database_id = "7e566884-1306-4b05-aede-aed6ac75548e"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "techfromalex-media"
+
+[[kv_namespaces]]
+binding = "RENDER_CACHE"
+id = "80763e26397749d5bf3d553b2d2511b3"
+
+# Astro Sessions store (auto-used by @astrojs/cloudflare).
+[[kv_namespaces]]
+binding = "SESSION"
+id = "f2d7567f5fb24d188241a58fbd81324b"
+
+# --- Public vars (non-secret) --------------------------------------------
+[vars]
+ADMIN_EMAIL = "alex258.hirt@gmail.com"
+SITE_URL = "https://techfromalex.com"
+# CF_ACCESS_TEAM_DOMAIN / CF_ACCESS_AUD set in Phase 4.
+# Secrets (ANTHROPIC_API_KEY, affiliate keys) via `wrangler secret put`.

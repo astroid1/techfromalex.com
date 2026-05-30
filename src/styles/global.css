@@ -1,0 +1,19 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* Minimal editorial tokens — the full brand system lands in Phase 2. */
+:root {
+  --paper: #fbfaf7;
+  --ink: #1a1714;
+  --accent: #d98324;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
