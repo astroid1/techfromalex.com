@@ -1,0 +1,104 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { getDB } from "@/lib/db";
+import { formatDate } from "@/lib/format";
+
+export const prerender = false;
+const db = getDB(Astro.locals);
+
+const counts = await db
+  .prepare(
+    `SELECT
+      (SELECT COUNT(*) FROM content WHERE status='published') AS published,
+      (SELECT COUNT(*) FROM content WHERE status IN ('draft','in_review')) AS drafts,
+      (SELECT COUNT(*) FROM products) AS products,
+      (SELECT COUNT(*) FROM affiliate_profiles) AS profiles`,
+  )
+  .first<{ published: number; drafts: number; products: number; profiles: number }>();
+
+const recent = await db
+  .prepare(
+    `SELECT id, title, type, status, updated_at FROM content ORDER BY updated_at DESC LIMIT 8`,
+  )
+  .all<{ id: string; title: string; type: string; status: string; updated_at: string }>();
+
+const stats = [
+  { label: "Published", value: counts?.published ?? 0 },
+  { label: "Drafts / in review", value: counts?.drafts ?? 0 },
+  { label: "Products", value: counts?.products ?? 0 },
+  { label: "Affiliate profiles", value: counts?.profiles ?? 0 },
+];
+const statusColor: Record<string, string> = {
+  published: "var(--success)",
+  draft: "var(--muted)",
+  in_review: "var(--accent)",
+  scheduled: "var(--cat-news)",
+  unpublished: "var(--danger)",
+};
+---
+
+<AdminLayout title="Dashboard">
+  <div class="flex flex-wrap gap-3">
+    <a href="/admin/content/new" class="rounded-xl bg-accent px-4 py-2.5 font-semibold text-accent-contrast transition hover:brightness-105">
+      + New content
+    </a>
+    <a href="/admin/affiliates/new" class="rounded-xl border border-line-strong px-4 py-2.5 font-semibold transition hover:bg-surface-2">
+      + Affiliate profile
+    </a>
+    <a href="/admin/products/new" class="rounded-xl border border-line-strong px-4 py-2.5 font-semibold transition hover:bg-surface-2">
+      + Product
+    </a>
+  </div>
+
+  <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    {
+      stats.map((s) => (
+        <div class="rounded-xl border border-line bg-surface p-5">
+          <p class="text-sm text-muted">{s.label}</p>
+          <p class="mt-1 font-display text-3xl font-bold">{s.value}</p>
+        </div>
+      ))
+    }
+  </div>
+
+  <h2 class="mt-10 font-display text-lg font-bold">Recent content</h2>
+  <div class="mt-3 overflow-hidden rounded-xl border border-line bg-surface">
+    <table class="w-full text-sm">
+      <thead class="bg-surface-2 text-left text-xs uppercase tracking-wide text-muted">
+        <tr>
+          <th class="p-3 font-semibold">Title</th>
+          <th class="p-3 font-semibold">Type</th>
+          <th class="p-3 font-semibold">Status</th>
+          <th class="p-3 font-semibold">Updated</th>
+        </tr>
+      </thead>
+      <tbody>
+        {
+          recent.results?.length ? (
+            recent.results.map((r) => (
+              <tr class="border-t border-line">
+                <td class="p-3">
+                  <a href={`/admin/content/${r.id}`} class="font-medium hover:text-accent-strong">{r.title}</a>
+                </td>
+                <td class="p-3 text-muted">{r.type}</td>
+                <td class="p-3">
+                  <span class="inline-flex items-center gap-1.5 text-xs font-semibold" style={`color:${statusColor[r.status] ?? "var(--muted)"}`}>
+                    <span class="h-1.5 w-1.5 rounded-full" style={`background:${statusColor[r.status] ?? "var(--muted)"}`} />
+                    {r.status}
+                  </span>
+                </td>
+                <td class="p-3 text-muted">{formatDate(r.updated_at)}</td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colspan="4" class="p-6 text-center text-muted">
+                No content yet. <a href="/admin/content/new" class="text-accent-strong">Create your first piece →</a>
+              </td>
+            </tr>
+          )
+        }
+      </tbody>
+    </table>
+  </div>
+</AdminLayout>

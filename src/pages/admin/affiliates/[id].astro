@@ -1,0 +1,68 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import AffiliateForm from "@/components/admin/AffiliateForm.astro";
+import { getDB } from "@/lib/db";
+import { nowIso } from "@/lib/ids";
+
+export const prerender = false;
+const { id } = Astro.params;
+const db = getDB(Astro.locals);
+let error: string | null = null;
+
+if (Astro.request.method === "POST") {
+  const isDelete = new URL(Astro.request.url).searchParams.get("delete") === "1";
+  if (isDelete) {
+    try {
+      await db.prepare("DELETE FROM affiliate_profiles WHERE id = ?").bind(id).run();
+      return Astro.redirect("/admin/affiliates");
+    } catch {
+      error = "Can't delete — this profile is still used by product links. Reassign those first.";
+    }
+  } else {
+    const f = await Astro.request.formData();
+    const name = String(f.get("name") ?? "").trim();
+    const network = String(f.get("network") ?? "");
+    const tag = String(f.get("tracking_tag") ?? "").trim();
+    const rules = String(f.get("link_rules_json") ?? "{}").trim() || "{}";
+    const isActive = f.get("is_active") ? 1 : 0;
+    if (!name || !tag) error = "Name and tracking tag are required.";
+    else {
+      try {
+        JSON.parse(rules);
+      } catch {
+        error = "Link rules must be valid JSON.";
+      }
+    }
+    if (!error) {
+      try {
+        await db
+          .prepare(
+            `UPDATE affiliate_profiles SET name=?, network=?, tracking_tag=?, link_rules_json=?, is_active=?, updated_at=? WHERE id=?`,
+          )
+          .bind(name, network, tag, rules, isActive, nowIso(), id)
+          .run();
+        return Astro.redirect("/admin/affiliates");
+      } catch (e) {
+        error = (e as Error).message;
+      }
+    }
+  }
+}
+
+const row = await db
+  .prepare("SELECT * FROM affiliate_profiles WHERE id = ?")
+  .bind(id)
+  .first<Record<string, any>>();
+if (!row) return Astro.redirect("/admin/affiliates");
+const values = {
+  name: row.name,
+  network: row.network,
+  tracking_tag: row.tracking_tag,
+  link_rules_json: row.link_rules_json,
+  is_active: row.is_active,
+};
+---
+
+<AdminLayout title="Edit affiliate profile">
+  <AffiliateForm values={values} error={error} submitLabel="Save changes" showDelete />
+</AdminLayout>

@@ -21,6 +21,7 @@
     "@fontsource-variable/geist": "^5.2.9",
     "@fontsource-variable/geist-mono": "^5.2.8",
     "astro": "^5",
+    "jose": "^6.2.3",
     "mdast-util-to-string": "^4.0.0",
     "react": "^19",
     "react-dom": "^19",
@@ -31,7 +32,8 @@
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
     "unified": "^11.0.5",
-    "unist-util-visit": "^5.1.0"
+    "unist-util-visit": "^5.1.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4",

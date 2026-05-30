@@ -1,0 +1,54 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import AffiliateForm from "@/components/admin/AffiliateForm.astro";
+import { getDB } from "@/lib/db";
+import { nowIso, ulid } from "@/lib/ids";
+import { slugify } from "@/lib/format";
+
+export const prerender = false;
+const db = getDB(Astro.locals);
+let error: string | null = null;
+let values: Record<string, unknown> = {};
+
+if (Astro.request.method === "POST") {
+  const f = await Astro.request.formData();
+  const name = String(f.get("name") ?? "").trim();
+  const network = String(f.get("network") ?? "");
+  const tag = String(f.get("tracking_tag") ?? "").trim();
+  const rules = String(f.get("link_rules_json") ?? "{}").trim() || "{}";
+  const isActive = f.get("is_active") ? 1 : 0;
+  values = { name, network, tracking_tag: tag, link_rules_json: rules, is_active: isActive };
+
+  if (!name || !tag) error = "Name and tracking tag are required.";
+  else {
+    try {
+      JSON.parse(rules);
+    } catch {
+      error = "Link rules must be valid JSON.";
+    }
+  }
+
+  if (!error) {
+    let id = slugify(name) || ulid().toLowerCase();
+    const exists = await db.prepare("SELECT 1 FROM affiliate_profiles WHERE id = ?").bind(id).first();
+    if (exists) id = `${id}-${ulid().slice(-4).toLowerCase()}`;
+    const now = nowIso();
+    try {
+      await db
+        .prepare(
+          `INSERT INTO affiliate_profiles (id, name, network, tracking_tag, link_rules_json, is_active, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(id, name, network, tag, rules, isActive, now, now)
+        .run();
+      return Astro.redirect("/admin/affiliates");
+    } catch (e) {
+      error = (e as Error).message;
+    }
+  }
+}
+---
+
+<AdminLayout title="New affiliate profile">
+  <AffiliateForm values={values} error={error} submitLabel="Create profile" />
+</AdminLayout>

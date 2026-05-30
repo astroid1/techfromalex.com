@@ -1,0 +1,63 @@
+---
+import Base from "@/layouts/Base.astro";
+import Container from "@/components/layout/Container.astro";
+import CategoryBadge from "@/components/ui/CategoryBadge.astro";
+import AffiliateDisclosure from "@/components/affiliate/AffiliateDisclosure.astro";
+import ProseRenderer from "@/components/content/ProseRenderer.astro";
+import ReviewIntro from "@/components/templates/ReviewIntro.astro";
+import RoundupIntro from "@/components/templates/RoundupIntro.astro";
+import ComparisonIntro from "@/components/templates/ComparisonIntro.astro";
+import NewsIntro from "@/components/templates/NewsIntro.astro";
+import { getDB } from "@/lib/db";
+import { getProducts } from "@/lib/content";
+import { renderBody } from "@/lib/render-body";
+import { productIdsInBody } from "@/lib/admin";
+
+export const prerender = false;
+const { id } = Astro.params;
+const db = getDB(Astro.locals);
+const c = await db.prepare("SELECT * FROM content WHERE id = ?").bind(id).first<any>();
+if (!c) return Astro.redirect("/admin/content");
+
+const structured = JSON.parse(c.structured_json || "{}");
+const idSet = new Set<string>(productIdsInBody(c.body_md));
+if (structured.productId) idSet.add(structured.productId);
+if (Array.isArray(structured.picks)) for (const p of structured.picks) if (p.productId) idSet.add(p.productId);
+if (Array.isArray(structured.entrants)) for (const e of structured.entrants) idSet.add(e);
+const rel =
+  (await db.prepare("SELECT product_id FROM content_products WHERE content_id=?").bind(id).all<any>())
+    .results ?? [];
+for (const r of rel) idSet.add(r.product_id);
+
+const products = await getProducts(db, [...idSet]);
+const { segments } = await renderBody(c.body_md || "", products);
+
+const content = {
+  structured,
+  verdictScore: c.verdict_score,
+  dealPriceCents: c.deal_price_cents,
+  dealExpiresAt: c.deal_expires_at,
+} as any;
+const hasAffiliate = products.size > 0;
+---
+
+<Base title={`Preview: ${c.title}`} noindex>
+  <div class="bg-accent py-2 text-center text-sm font-medium text-accent-contrast">
+    Preview — status: {c.status}. <a href={`/admin/content/${id}`} class="underline">Back to editor</a>
+  </div>
+  <Container width="content" class="py-10">
+    <header class="max-w-3xl">
+      <CategoryBadge category={c.category} href={false} />
+      <h1 class="mt-3 font-display text-4xl font-bold leading-[1.08] tracking-tight text-ink sm:text-5xl">{c.title}</h1>
+      {c.dek && <p class="mt-4 text-lg leading-relaxed text-ink-soft">{c.dek}</p>}
+    </header>
+    <div class="mt-10">
+      {hasAffiliate && <div class="mb-8"><AffiliateDisclosure /></div>}
+      {c.type === "review" && <ReviewIntro content={content} products={products} />}
+      {c.type === "roundup" && <RoundupIntro content={content} products={products} />}
+      {c.type === "comparison" && <ComparisonIntro content={content} products={products} />}
+      {c.type === "news_deal" && <NewsIntro content={content} products={products} />}
+      <ProseRenderer segments={segments} products={products} />
+    </div>
+  </Container>
+</Base>

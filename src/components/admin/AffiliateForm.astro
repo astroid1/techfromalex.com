@@ -1,0 +1,71 @@
+---
+interface Props {
+  values?: {
+    name?: string;
+    network?: string;
+    tracking_tag?: string;
+    link_rules_json?: string;
+    is_active?: number;
+  };
+  error?: string | null;
+  submitLabel?: string;
+  showDelete?: boolean;
+}
+const { values = {}, error = null, submitLabel = "Save", showDelete = false } = Astro.props;
+const networks = ["amazon", "bestbuy", "bhphoto", "impact", "cj", "manual"];
+const input =
+  "mt-1 w-full rounded-lg border border-line-strong bg-paper px-3 py-2 text-ink outline-none transition focus-visible:border-accent";
+---
+
+<form method="POST" class="max-w-lg space-y-5">
+  {
+    error && (
+      <p class="rounded-lg px-4 py-2 text-sm" style="color:var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent)">
+        {error}
+      </p>
+    )
+  }
+  <label class="block">
+    <span class="text-sm font-medium">Name</span>
+    <input name="name" value={values.name ?? ""} required class={input} placeholder="Amazon Associates (Main)" />
+  </label>
+  <label class="block">
+    <span class="text-sm font-medium">Network</span>
+    <select name="network" class={input}>
+      {networks.map((n) => <option value={n} selected={values.network === n}>{n}</option>)}
+    </select>
+  </label>
+  <label class="block">
+    <span class="text-sm font-medium">Tracking tag / ID</span>
+    <input name="tracking_tag" value={values.tracking_tag ?? ""} required class={input} placeholder="techfromalex-20" />
+    <span class="mt-1 block text-xs text-muted">Amazon: your associate tag. Impact/CJ: your publisher or click ref.</span>
+  </label>
+  <label class="block">
+    <span class="text-sm font-medium">Link rules (JSON, optional)</span>
+    <textarea name="link_rules_json" rows="3" class={`${input} font-mono text-sm`}>{values.link_rules_json ?? "{}"}</textarea>
+    <span class="mt-1 block text-xs text-muted">Advanced: custom query param or extra params. Leave as default for Amazon.</span>
+  </label>
+  <label class="flex items-center gap-2">
+    <input type="checkbox" name="is_active" value="1" checked={values.is_active === undefined || values.is_active === 1} />
+    <span class="text-sm font-medium">Active (links use this profile)</span>
+  </label>
+  <div class="flex items-center gap-3 pt-2">
+    <button class="rounded-xl bg-accent px-5 py-2.5 font-semibold text-accent-contrast transition hover:brightness-105">
+      {submitLabel}
+    </button>
+    <a href="/admin/affiliates" class="rounded-xl border border-line-strong px-5 py-2.5 font-semibold transition hover:bg-surface-2">
+      Cancel
+    </a>
+    {
+      showDelete && (
+        <button
+          formaction="?delete=1"
+          class="ml-auto rounded-xl px-4 py-2.5 text-sm font-semibold transition hover:bg-surface-2"
+          style="color:var(--danger)"
+        >
+          Delete
+        </button>
+      )
+    }
+  </div>
+</form>
