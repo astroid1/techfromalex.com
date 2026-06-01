@@ -1,0 +1,39 @@
+---
+import Base from "@/layouts/Base.astro";
+import Container from "@/components/layout/Container.astro";
+import PostCard from "@/components/blog/PostCard.astro";
+import { getDB } from "@/lib/db";
+import { listPublished } from "@/lib/content";
+
+const db = getDB(Astro.locals);
+const items = await listPublished(db, { type: "comparison", limit: 60 });
+---
+
+<Base
+  title="Comparisons"
+  description="Head-to-head tech comparisons — we put the top contenders side by side so you can pick the right one with confidence."
+>
+  <section class="border-b border-line">
+    <Container width="wide" class="py-14 sm:py-16">
+      <p class="text-xs font-semibold uppercase tracking-widest" style="color: var(--cat-comparisons);">Head to head</p>
+      <h1 class="mt-3 font-display text-4xl font-bold tracking-tight text-ink sm:text-5xl">Comparisons</h1>
+      <p class="mt-4 max-w-xl text-lg leading-relaxed text-ink-soft">
+        The top contenders, tested side by side — so you can skip the spec-sheet rabbit hole and just pick the right one.
+      </p>
+    </Container>
+  </section>
+
+  <Container width="wide" class="py-14">
+    {
+      items.length > 0 ? (
+        <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map((p) => (
+            <PostCard item={p} />
+          ))}
+        </div>
+      ) : (
+        <p class="glass rounded-2xl p-8 text-muted">No comparisons published yet — check back soon.</p>
+      )
+    }
+  </Container>
+</Base>

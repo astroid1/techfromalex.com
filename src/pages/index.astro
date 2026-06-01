@@ -3,87 +3,115 @@ import Base from "@/layouts/Base.astro";
 import Container from "@/components/layout/Container.astro";
 import PostCard from "@/components/blog/PostCard.astro";
 import { getDB } from "@/lib/db";
-import { listPublished } from "@/lib/content";
-import { CATEGORY_NAMES } from "@/lib/types";
+import { listPublished, countPublished } from "@/lib/content";
+import { CATEGORY_NAMES, type CategorySlug } from "@/lib/types";
 
-export const prerender = false;
 const db = getDB(Astro.locals);
-const posts = await listPublished(db, { limit: 10 });
+
+const catOrder: CategorySlug[] = ["reviews", "guides", "comparisons", "deals", "news"];
+const [posts, deals, ...catCounts] = await Promise.all([
+  listPublished(db, { limit: 13 }),
+  listPublished(db, { type: "news_deal", limit: 3 }),
+  ...catOrder.map((c) => countPublished(db, { category: c })),
+]);
+
 const featured = posts[0] ?? null;
-const rest = posts.slice(1, 7);
-const cats = Object.entries(CATEGORY_NAMES);
+const latest = posts.slice(1, 7);
+const cats = catOrder.map((slug, i) => ({
+  slug,
+  name: CATEGORY_NAMES[slug],
+  count: catCounts[i] as number,
+  href: slug === "deals" ? "/deals" : `/category/${slug}`,
+}));
+const dealItems = deals.filter((d) => d.slug !== featured?.slug);
 ---
 
 <Base>
-  <section class="border-b border-line bg-surface">
-    <Container width="wide" class="py-12 sm:py-16">
-      <div class="grid items-center gap-10 lg:grid-cols-[1fr_1.05fr]">
-        <div>
-          <p class="text-sm font-semibold uppercase tracking-widest text-accent-strong">Tech, tested honestly</p>
-          <h1 class="mt-3 font-display text-4xl font-bold leading-[1.04] tracking-tight text-ink sm:text-5xl lg:text-6xl">
-            Reviews you can <span class="text-accent-strong">actually trust</span>.
-          </h1>
-          <p class="mt-4 max-w-md text-lg leading-relaxed text-ink-soft">
-            Hands-on reviews, no-nonsense buying guides, and the deals worth your money — from
-            someone who buys the gear himself.
-          </p>
-          <div class="mt-7 flex flex-wrap gap-3">
-            <a
-              href="/blog"
-              class="rounded-xl bg-accent px-5 py-3 font-semibold text-accent-contrast shadow-[var(--shadow-md)] transition hover:brightness-105"
-            >
-              Browse all reviews
-            </a>
-            <a
-              href="/deals"
-              class="rounded-xl border border-line-strong px-5 py-3 font-semibold text-ink transition hover:bg-surface-2"
-            >
-              Today's deals
-            </a>
-          </div>
-        </div>
-        {featured && (
-          <div class="rise">
-            <PostCard item={featured} featured />
-          </div>
-        )}
-      </div>
-    </Container>
-  </section>
-
-  <Container width="wide" class="py-14">
-    <div class="flex items-end justify-between">
-      <h2 class="font-display text-2xl font-bold text-ink">Latest</h2>
-      <a href="/blog" class="text-sm font-medium text-accent-strong hover:underline">View all →</a>
-    </div>
+  {/* ============================================ Lead story === */}
+  <Container width="wide" class="py-9 sm:py-12">
     {
-      rest.length > 0 ? (
-        <div class="mt-7 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {rest.map((p) => (
-            <PostCard item={p} />
-          ))}
+      featured ? (
+        <div class="rise">
+          <PostCard item={featured} featured />
         </div>
       ) : (
-        <p class="mt-7 rounded-2xl border border-line bg-surface p-8 text-muted">More reviews coming soon.</p>
+        <div class="card rounded-2xl p-10 text-center text-muted">No stories published yet — check back soon.</div>
       )
     }
   </Container>
 
-  <Container width="wide" class="pb-16">
-    <div class="rounded-2xl border border-line bg-surface p-8 text-center">
-      <h2 class="font-display text-2xl font-bold text-ink">Find what you need</h2>
-      <p class="mx-auto mt-2 max-w-md text-ink-soft">Jump straight to the gear you're shopping for.</p>
-      <div class="mt-6 flex flex-wrap justify-center gap-3">
-        {
-          cats.map(([slug, name]) => (
-            <a
-              href={slug === "deals" ? "/deals" : `/category/${slug}`}
-              class="rounded-full border border-line-strong px-4 py-2 text-sm font-medium text-ink-soft transition hover:border-accent hover:text-accent-strong"
-            >
-              {name}
-            </a>
-          ))
-        }
+  {/* ============================================ Latest === */}
+  {
+    latest.length > 0 && (
+      <Container width="wide" class="border-t border-line py-12">
+        <div class="mb-8 flex items-end justify-between gap-4">
+          <h2 class="text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">Latest</h2>
+          <a href="/blog" class="shrink-0 text-sm font-bold text-accent-strong transition hover:brightness-110">
+            View all →
+          </a>
+        </div>
+        <div class="grid gap-x-7 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+          {latest.map((p) => (
+            <PostCard item={p} />
+          ))}
+        </div>
+      </Container>
+    )
+  }
+
+  {/* ============================================ Browse by category === */}
+  <Container width="wide" class="border-t border-line py-12">
+    <h2 class="mb-6 text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">Browse by category</h2>
+    <div class="flex flex-wrap gap-3">
+      {
+        cats.map((c) => (
+          <a
+            href={c.href}
+            class="group inline-flex items-center gap-2.5 rounded-full border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink-soft transition hover:border-line-strong hover:text-ink"
+          >
+            <span class="h-2 w-2 rounded-full" style={`background: var(--cat-${c.slug});`} />
+            {c.name}
+            <span class="text-xs font-bold text-muted">{c.count}</span>
+          </a>
+        ))
+      }
+    </div>
+  </Container>
+
+  {/* ============================================ Deals === */}
+  {
+    dealItems.length > 0 && (
+      <Container width="wide" class="border-t border-line py-12">
+        <div class="mb-8 flex items-end justify-between gap-4">
+          <h2 class="text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">Deals worth grabbing</h2>
+          <a href="/deals" class="shrink-0 text-sm font-bold text-accent-strong transition hover:brightness-110">
+            All deals →
+          </a>
+        </div>
+        <div class="grid gap-x-7 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+          {dealItems.map((p) => (
+            <PostCard item={p} />
+          ))}
+        </div>
+      </Container>
+    )
+  }
+
+  {/* ============================================ Subscribe band === */}
+  <Container width="wide" class="border-t border-line py-14">
+    <div class="card rounded-2xl p-8 text-center sm:p-12">
+      <h2 class="text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">Never miss a review</h2>
+      <p class="mx-auto mt-2 max-w-md text-ink-soft">
+        New gear, tested honestly. Subscribe by RSS or browse the full archive.
+      </p>
+      <div class="mt-7 flex flex-wrap justify-center gap-3">
+        <a href="/rss.xml" class="btn-accent rounded-xl px-5 py-3 font-semibold">Subscribe via RSS</a>
+        <a
+          href="/blog"
+          class="rounded-xl border border-line-strong px-5 py-3 font-semibold text-ink transition hover:bg-surface-2"
+        >
+          Browse the archive
+        </a>
       </div>
     </div>
   </Container>

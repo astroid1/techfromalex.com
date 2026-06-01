@@ -12,13 +12,13 @@ const big = size === "lg";
 {
   s != null && (
     <div
-      class={`inline-flex flex-col items-center justify-center rounded-2xl bg-accent text-accent-contrast shadow-[var(--shadow-md)] ${big ? "px-5 py-3" : "px-3 py-2"}`}
+      class={`inline-flex flex-col items-center justify-center rounded-2xl bg-accent text-accent-contrast ${big ? "px-5 py-3" : "px-3 py-2"}`}
     >
-      <span class={`font-display font-bold leading-none ${big ? "text-3xl" : "text-xl"}`}>
+      <span class={`font-display font-extrabold leading-none ${big ? "text-3xl" : "text-xl"}`}>
         {s.toFixed(1)}
-        <span class={`font-sans font-medium opacity-70 ${big ? "text-base" : "text-xs"}`}>/10</span>
+        <span class={`font-sans font-semibold opacity-75 ${big ? "text-base" : "text-xs"}`}>/10</span>
       </span>
-      <span class={`mt-0.5 font-semibold uppercase tracking-widest opacity-80 ${big ? "text-[10px]" : "text-[9px]"}`}>
+      <span class={`mt-0.5 font-bold uppercase tracking-widest opacity-85 ${big ? "text-[10px]" : "text-[9px]"}`}>
         {label}
       </span>
     </div>

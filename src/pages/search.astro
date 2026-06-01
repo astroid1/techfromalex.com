@@ -13,7 +13,7 @@ const results = q ? await searchContent(db, q, 20) : [];
 
 <Base title={q ? `Search: ${q}` : "Search"} description="Search Tech From Alex reviews, guides, and deals." noindex>
   <Container width="content" class="py-12">
-    <h1 class="font-display text-4xl font-bold tracking-tight text-ink">Search</h1>
+    <h1 class="font-display text-4xl font-extrabold tracking-tight text-ink sm:text-5xl">Search</h1>
     <form method="get" action="/search" class="mt-6 flex gap-2" role="search">
       <input
         type="search"
@@ -22,9 +22,9 @@ const results = q ? await searchContent(db, q, 20) : [];
         placeholder="Search reviews, guides, products…"
         autofocus
         aria-label="Search"
-        class="w-full rounded-xl border border-line-strong bg-surface px-4 py-3 text-ink outline-none transition focus-visible:border-accent"
+        class="w-full rounded-xl border border-line bg-surface px-4 py-3 text-ink outline-none transition placeholder:text-muted focus-visible:border-accent"
       />
-      <button class="rounded-xl bg-accent px-5 py-3 font-semibold text-accent-contrast transition hover:brightness-105">
+      <button class="btn-accent rounded-xl px-5 py-3 font-semibold">
         Search
       </button>
     </form>
@@ -35,16 +35,16 @@ const results = q ? await searchContent(db, q, 20) : [];
       </p>
     )}
 
-    <ul class="mt-2 divide-y divide-line">
+    <ul class="mt-2 divide-y divide-line border-t border-line">
       {results.map((r) => (
         <li class="py-5">
           <a href={`/${r.slug}`} class="group block">
             <CategoryBadge category={r.category} href={false} />
-            <h2 class="mt-2 font-display text-xl font-semibold text-ink transition group-hover:text-accent-strong">
+            <h2 class="mt-2 font-display text-xl font-extrabold tracking-tight text-ink transition group-hover:text-accent-strong">
               {r.title}
             </h2>
             <p
-              class="mt-1 text-sm text-ink-soft [&_mark]:bg-transparent [&_mark]:font-semibold [&_mark]:text-accent-strong"
+              class="mt-1 text-sm leading-relaxed text-ink-soft [&_mark]:bg-transparent [&_mark]:font-semibold [&_mark]:text-accent-strong"
               set:html={r.snippet || r.dek || ""}
             />
           </a>

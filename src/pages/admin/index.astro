@@ -12,9 +12,10 @@ const counts = await db
       (SELECT COUNT(*) FROM content WHERE status='published') AS published,
       (SELECT COUNT(*) FROM content WHERE status IN ('draft','in_review')) AS drafts,
       (SELECT COUNT(*) FROM products) AS products,
-      (SELECT COUNT(*) FROM affiliate_profiles) AS profiles`,
+      (SELECT COUNT(*) FROM affiliate_profiles) AS profiles,
+      (SELECT COUNT(*) FROM networks) AS networks`,
   )
-  .first<{ published: number; drafts: number; products: number; profiles: number }>();
+  .first<{ published: number; drafts: number; products: number; profiles: number; networks: number }>();
 
 const recent = await db
   .prepare(
@@ -27,6 +28,7 @@ const stats = [
   { label: "Drafts / in review", value: counts?.drafts ?? 0 },
   { label: "Products", value: counts?.products ?? 0 },
   { label: "Affiliate profiles", value: counts?.profiles ?? 0 },
+  { label: "Networks", value: counts?.networks ?? 0 },
 ];
 const statusColor: Record<string, string> = {
   published: "var(--success)",
@@ -50,7 +52,7 @@ const statusColor: Record<string, string> = {
     </a>
   </div>
 
-  <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+  <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
     {
       stats.map((s) => (
         <div class="rounded-xl border border-line bg-surface p-5">

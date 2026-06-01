@@ -1,0 +1,66 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import NetworkForm from "@/components/admin/NetworkForm.astro";
+import { getDB } from "@/lib/db";
+import { nowIso } from "@/lib/ids";
+
+export const prerender = false;
+const { id } = Astro.params;
+const db = getDB(Astro.locals);
+let error: string | null = null;
+
+if (Astro.request.method === "POST") {
+  const isDelete = new URL(Astro.request.url).searchParams.get("delete") === "1";
+  if (isDelete) {
+    try {
+      await db.prepare("DELETE FROM networks WHERE id = ?").bind(id).run();
+      return Astro.redirect("/admin/networks");
+    } catch {
+      error = "Can't delete — profiles still use this network. Reassign or remove those profiles first.";
+    }
+  } else {
+    const f = await Astro.request.formData();
+    const name = String(f.get("name") ?? "").trim();
+    const linkParam = String(f.get("link_param") ?? "tag").trim();
+    const extra = String(f.get("extra_params_json") ?? "{}").trim() || "{}";
+    const paramHelp = String(f.get("param_help") ?? "").trim();
+    const isActive = f.get("is_active") ? 1 : 0;
+    if (!name) error = "Name is required.";
+    else {
+      try {
+        JSON.parse(extra);
+      } catch {
+        error = "Extra params must be valid JSON.";
+      }
+    }
+    if (!error) {
+      try {
+        await db
+          .prepare(
+            `UPDATE networks SET name=?, link_param=?, extra_params_json=?, param_help=?, is_active=?, updated_at=? WHERE id=?`,
+          )
+          .bind(name, linkParam, extra, paramHelp || null, isActive, nowIso(), id)
+          .run();
+        return Astro.redirect("/admin/networks");
+      } catch (e) {
+        error = (e as Error).message;
+      }
+    }
+  }
+}
+
+const row = await db.prepare("SELECT * FROM networks WHERE id = ?").bind(id).first<Record<string, any>>();
+if (!row) return Astro.redirect("/admin/networks");
+const values = {
+  id: row.id,
+  name: row.name,
+  link_param: row.link_param,
+  extra_params_json: row.extra_params_json,
+  param_help: row.param_help,
+  is_active: row.is_active,
+};
+---
+
+<AdminLayout title="Edit network">
+  <NetworkForm values={values} error={error} submitLabel="Save changes" showDelete />
+</AdminLayout>

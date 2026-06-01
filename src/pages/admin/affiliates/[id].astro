@@ -8,6 +8,12 @@ export const prerender = false;
 const { id } = Astro.params;
 const db = getDB(Astro.locals);
 let error: string | null = null;
+const networks =
+  (
+    await db
+      .prepare("SELECT id, name, param_help, link_param FROM networks ORDER BY name")
+      .all<{ id: string; name: string; param_help: string | null; link_param: string }>()
+  ).results ?? [];
 
 if (Astro.request.method === "POST") {
   const isDelete = new URL(Astro.request.url).searchParams.get("delete") === "1";
@@ -64,5 +70,5 @@ const values = {
 ---
 
 <AdminLayout title="Edit affiliate profile">
-  <AffiliateForm values={values} error={error} submitLabel="Save changes" showDelete />
+  <AffiliateForm values={values} error={error} submitLabel="Save changes" showDelete networks={networks} />
 </AdminLayout>

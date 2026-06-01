@@ -33,6 +33,8 @@ interface LinkRow {
   network: string;
   tracking_tag: string;
   link_rules_json: string;
+  link_param: string | null;
+  extra_params_json: string | null;
 }
 
 /** Resolve products by id, each with a built primary affiliate URL. */
@@ -50,9 +52,11 @@ export async function getProducts(
     db
       .prepare(
         `SELECT pl.product_id, pl.base_url, pl.tag_override, pl.is_primary,
-                ap.network, ap.tracking_tag, ap.link_rules_json
+                ap.network, ap.tracking_tag, ap.link_rules_json,
+                nw.link_param, nw.extra_params_json
          FROM product_links pl
          JOIN affiliate_profiles ap ON ap.id = pl.affiliate_profile_id
+         LEFT JOIN networks nw ON nw.id = ap.network
          WHERE pl.product_id IN (${ph}) AND ap.is_active = 1
          ORDER BY pl.is_primary DESC`,
       )
@@ -74,7 +78,13 @@ export async function getProducts(
     if (link) {
       try {
         buyUrl = buildAffiliateUrl(
-          { network: link.network, tracking_tag: link.tracking_tag, link_rules_json: link.link_rules_json },
+          {
+            network: link.network,
+            tracking_tag: link.tracking_tag,
+            link_rules_json: link.link_rules_json,
+            link_param: link.link_param,
+            extra_params_json: link.extra_params_json,
+          },
           { base_url: link.base_url, tag_override: link.tag_override },
         );
         buyNetwork = link.network;

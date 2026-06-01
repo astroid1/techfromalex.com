@@ -11,12 +11,12 @@ const { items, empty = "Nothing here yet — check back soon." } = Astro.props;
 
 {
   items.length > 0 ? (
-    <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div class="grid gap-x-7 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
       {items.map((i) => (
         <PostCard item={i} />
       ))}
     </div>
   ) : (
-    <p class="rounded-2xl border border-line bg-surface p-8 text-center text-muted">{empty}</p>
+    <p class="rounded-2xl border border-line p-8 text-center text-muted">{empty}</p>
   )
 }

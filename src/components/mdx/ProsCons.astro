@@ -7,7 +7,7 @@ const { pros = [], cons = [] } = Astro.props;
 ---
 
 <div class="not-prose my-8 grid gap-4 sm:grid-cols-2">
-  <div class="rounded-xl border border-line bg-surface p-5" style="border-top: 3px solid var(--success);">
+  <div class="glass rounded-xl p-5" style="border-top: 3px solid var(--success);">
     <h4 class="mb-3 flex items-center gap-2 font-semibold text-ink">
       <span class="grid h-5 w-5 place-items-center rounded-full text-xs" style="background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success);">✓</span>
       Pros
@@ -21,7 +21,7 @@ const { pros = [], cons = [] } = Astro.props;
       ))}
     </ul>
   </div>
-  <div class="rounded-xl border border-line bg-surface p-5" style="border-top: 3px solid var(--danger);">
+  <div class="glass rounded-xl p-5" style="border-top: 3px solid var(--danger);">
     <h4 class="mb-3 flex items-center gap-2 font-semibold text-ink">
       <span class="grid h-5 w-5 place-items-center rounded-full text-xs" style="background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger);">✕</span>
       Cons

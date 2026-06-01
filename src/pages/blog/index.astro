@@ -20,7 +20,7 @@ const items = await listPublished(db, { limit: PAGE_SIZE, offset: (page - 1) * P
   description="Every Tech From Alex review, buying guide, and comparison in one place."
 >
   <Container width="wide" class="py-12">
-    <h1 class="font-display text-4xl font-bold tracking-tight text-ink">All articles</h1>
+    <h1 class="font-display text-4xl font-extrabold tracking-tight text-ink sm:text-5xl">All articles</h1>
     <p class="mt-2 text-ink-soft">{total} reviews, guides &amp; comparisons.</p>
     <div class="mt-8">
       <PostGrid items={items} empty="No articles published yet." />

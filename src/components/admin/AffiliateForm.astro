@@ -1,4 +1,10 @@
 ---
+interface NetOpt {
+  id: string;
+  name: string;
+  param_help?: string | null;
+  link_param?: string | null;
+}
 interface Props {
   values?: {
     name?: string;
@@ -10,14 +16,18 @@ interface Props {
   error?: string | null;
   submitLabel?: string;
   showDelete?: boolean;
+  networks?: NetOpt[];
 }
-const { values = {}, error = null, submitLabel = "Save", showDelete = false } = Astro.props;
-const networks = ["amazon", "bestbuy", "bhphoto", "impact", "cj", "manual"];
+const { values = {}, error = null, submitLabel = "Save", showDelete = false, networks = [] } = Astro.props;
 const input =
   "mt-1 w-full rounded-lg border border-line-strong bg-paper px-3 py-2 text-ink outline-none transition focus-visible:border-accent";
+const currentNet = values.network ?? networks[0]?.id ?? "";
+const netData = JSON.stringify(
+  Object.fromEntries(networks.map((n) => [n.id, { help: n.param_help ?? "", param: n.link_param ?? "tag" }])),
+);
 ---
 
-<form method="POST" class="max-w-lg space-y-5">
+<form method="POST" class="max-w-lg space-y-5" data-networks={netData}>
   {
     error && (
       <p class="rounded-lg px-4 py-2 text-sm" style="color:var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent)">
@@ -29,26 +39,45 @@ const input =
     <span class="text-sm font-medium">Name</span>
     <input name="name" value={values.name ?? ""} required class={input} placeholder="Amazon Associates (Main)" />
   </label>
+
   <label class="block">
     <span class="text-sm font-medium">Network</span>
-    <select name="network" class={input}>
-      {networks.map((n) => <option value={n} selected={values.network === n}>{n}</option>)}
-    </select>
+    {
+      networks.length ? (
+        <select name="network" data-aff-net class={input}>
+          {networks.map((n) => (
+            <option value={n.id} selected={currentNet === n.id}>{n.name}</option>
+          ))}
+        </select>
+      ) : (
+        <p class="mt-1 rounded-lg border border-line bg-surface-2 p-3 text-sm text-muted">
+          No networks yet — <a href="/admin/networks/new" class="text-accent-strong">add a network first →</a>
+        </p>
+      )
+    }
   </label>
+
   <label class="block">
     <span class="text-sm font-medium">Tracking tag / ID</span>
-    <input name="tracking_tag" value={values.tracking_tag ?? ""} required class={input} placeholder="techfromalex-20" />
-    <span class="mt-1 block text-xs text-muted">Amazon: your associate tag. Impact/CJ: your publisher or click ref.</span>
+    <input name="tracking_tag" data-aff-tag value={values.tracking_tag ?? ""} required class={input} placeholder="techfromalex-20" />
+    <span class="mt-1 block text-xs text-muted" data-aff-help>Your affiliate tracking tag for this network.</span>
   </label>
-  <label class="block">
-    <span class="text-sm font-medium">Link rules (JSON, optional)</span>
+
+  <div class="rounded-lg border border-line bg-surface-2 p-3 text-xs text-muted">
+    Example link: <code data-aff-preview class="text-ink-soft">https://example.com/p?tag=YOUR-TAG</code>
+  </div>
+
+  <details class="rounded-lg border border-line bg-surface-2/50 px-3 py-2">
+    <summary class="cursor-pointer text-sm font-medium text-ink-soft">Advanced: link rules (JSON)</summary>
     <textarea name="link_rules_json" rows="3" class={`${input} font-mono text-sm`}>{values.link_rules_json ?? "{}"}</textarea>
-    <span class="mt-1 block text-xs text-muted">Advanced: custom query param or extra params. Leave as default for Amazon.</span>
-  </label>
+    <span class="mt-1 block text-xs text-muted">Overrides the network default: custom <code>param</code>, <code>extraParams</code>, or <code>kbid</code>.</span>
+  </details>
+
   <label class="flex items-center gap-2">
     <input type="checkbox" name="is_active" value="1" checked={values.is_active === undefined || values.is_active === 1} />
     <span class="text-sm font-medium">Active (links use this profile)</span>
   </label>
+
   <div class="flex items-center gap-3 pt-2">
     <button class="rounded-xl bg-accent px-5 py-2.5 font-semibold text-accent-contrast transition hover:brightness-105">
       {submitLabel}
@@ -69,3 +98,30 @@ const input =
     }
   </div>
 </form>
+
+<script is:inline>
+  (function () {
+    var form = document.querySelector("form[data-networks]");
+    if (!form) return;
+    var map = {};
+    try {
+      map = JSON.parse(form.getAttribute("data-networks") || "{}");
+    } catch (e) {}
+    var sel = form.querySelector("[data-aff-net]");
+    var tag = form.querySelector("[data-aff-tag]");
+    var help = form.querySelector("[data-aff-help]");
+    var prev = form.querySelector("[data-aff-preview]");
+    if (!tag || !prev) return;
+    function upd() {
+      var n = (sel && map[sel.value]) || { help: "", param: "tag" };
+      if (help) help.textContent = n.help || "Your affiliate tracking tag for this network.";
+      var t = (tag.value || "").trim() || "YOUR-TAG";
+      prev.textContent = n.param
+        ? "https://example.com/p?" + n.param + "=" + t
+        : "https://example.com/p   (full link — no tag appended)";
+    }
+    if (sel) sel.addEventListener("change", upd);
+    tag.addEventListener("input", upd);
+    upd();
+  })();
+</script>

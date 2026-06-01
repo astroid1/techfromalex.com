@@ -9,6 +9,12 @@ export const prerender = false;
 const db = getDB(Astro.locals);
 let error: string | null = null;
 let values: Record<string, unknown> = {};
+const networks =
+  (
+    await db
+      .prepare("SELECT id, name, param_help, link_param FROM networks ORDER BY name")
+      .all<{ id: string; name: string; param_help: string | null; link_param: string }>()
+  ).results ?? [];
 
 if (Astro.request.method === "POST") {
   const f = await Astro.request.formData();
@@ -50,5 +56,5 @@ if (Astro.request.method === "POST") {
 ---
 
 <AdminLayout title="New affiliate profile">
-  <AffiliateForm values={values} error={error} submitLabel="Create profile" />
+  <AffiliateForm values={values} error={error} submitLabel="Create profile" networks={networks} />
 </AdminLayout>

@@ -4,24 +4,26 @@ import { CATEGORY_NAMES, type CategorySlug } from "@/lib/types";
 interface Props {
   category: CategorySlug | string | null | undefined;
   href?: boolean;
+  /** Dark pill for overlaying on imagery (Engadget-style). */
+  overlay?: boolean;
 }
-const { category, href = true } = Astro.props;
+const { category, href = true, overlay = false } = Astro.props;
 const slug = (category ?? "") as CategorySlug;
 const name = CATEGORY_NAMES[slug] ?? category ?? "";
 const known = slug in CATEGORY_NAMES;
-const style = known
-  ? `color: var(--cat-${slug}); background: color-mix(in srgb, var(--cat-${slug}) 13%, transparent);`
-  : "";
+const dot = known ? `var(--cat-${slug})` : "var(--accent)";
 const Tag = href && known ? "a" : "span";
+const base =
+  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide transition";
+const cls = overlay
+  ? `${base} pill-overlay`
+  : `${base} border border-line bg-surface-2 text-ink-soft hover:text-ink`;
 ---
 
 {
   name && (
-    <Tag
-      href={href && known ? `/category/${slug}` : undefined}
-      class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide transition hover:brightness-95"
-      style={style}
-    >
+    <Tag href={href && known ? `/category/${slug}` : undefined} class={cls}>
+      <span class="h-1.5 w-1.5 rounded-full" style={`background:${dot}`} />
       {name}
     </Tag>
   )

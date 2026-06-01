@@ -4,8 +4,8 @@
   "description": "Honest, hands-on tech reviews, guides, and deals.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#fbfaf7",
-  "theme_color": "#c2680e",
+  "background_color": "#0a0c12",
+  "theme_color": "#0a0c12",
   "icons": [
     { "src": "/favicon.svg", "type": "image/svg+xml", "sizes": "any" }
   ]

@@ -67,26 +67,26 @@ const orgLd = {
     <meta name="twitter:description" content={description} />
     {ogImage && <meta name="twitter:image" content={ogImage} />}
 
-    <meta name="theme-color" content="#c2680e" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#14110d" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#0a0c12" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="manifest" href="/site.webmanifest" />
     <link rel="alternate" type="application/rss+xml" title={`${SITE} — RSS`} href="/rss.xml" />
 
     <script is:inline>
+      // Dark is the default; users opt into light via the toggle (stored as theme=light).
       (function () {
         try {
-          var t = localStorage.getItem("theme");
-          if (t === "dark" || (!t && matchMedia("(prefers-color-scheme: dark)").matches))
-            document.documentElement.classList.add("dark");
+          if (localStorage.getItem("theme") === "light")
+            document.documentElement.classList.add("light");
         } catch (e) {}
       })();
       document.addEventListener("astro:after-swap", function () {
         try {
-          var t = localStorage.getItem("theme");
-          var d = t === "dark" || (!t && matchMedia("(prefers-color-scheme: dark)").matches);
-          document.documentElement.classList.toggle("dark", d);
+          document.documentElement.classList.toggle(
+            "light",
+            localStorage.getItem("theme") === "light",
+          );
         } catch (e) {}
       });
     </script>

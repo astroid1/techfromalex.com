@@ -4,55 +4,76 @@ import { getDB } from "@/lib/db";
 
 export const prerender = false;
 const db = getDB(Astro.locals);
-const rows = await db
-  .prepare("SELECT id, name, network, tracking_tag, is_active FROM affiliate_profiles ORDER BY name")
-  .all<{ id: string; name: string; network: string; tracking_tag: string; is_active: number }>();
-const profiles = rows.results ?? [];
+const profiles =
+  (
+    await db
+      .prepare(
+        `SELECT ap.id, ap.name, ap.network, ap.tracking_tag, ap.is_active,
+                n.name AS network_name,
+                (SELECT COUNT(*) FROM product_links pl WHERE pl.affiliate_profile_id = ap.id) AS link_count
+         FROM affiliate_profiles ap
+         LEFT JOIN networks n ON n.id = ap.network
+         ORDER BY ap.name`,
+      )
+      .all<{
+        id: string;
+        name: string;
+        network: string;
+        tracking_tag: string;
+        is_active: number;
+        network_name: string | null;
+        link_count: number;
+      }>()
+  ).results ?? [];
 ---
 
 <AdminLayout title="Affiliate profiles">
   <div class="flex items-center justify-between gap-4">
     <p class="max-w-xl text-sm text-muted">
       Reusable affiliate accounts. Create one per network/account, then select it on products and
-      articles — links are built with its tag automatically.
+      articles — links are built with its tag automatically. Manage networks under
+      <a href="/admin/networks" class="text-accent-strong">Networks</a>.
     </p>
     <a href="/admin/affiliates/new" class="shrink-0 rounded-xl bg-accent px-4 py-2.5 font-semibold text-accent-contrast transition hover:brightness-105">
       + New profile
     </a>
   </div>
 
-  <div class="mt-6 overflow-hidden rounded-xl border border-line bg-surface">
-    <table class="w-full text-sm">
-      <thead class="bg-surface-2 text-left text-xs uppercase tracking-wide text-muted">
-        <tr>
-          <th class="p-3 font-semibold">Name</th>
-          <th class="p-3 font-semibold">Network</th>
-          <th class="p-3 font-semibold">Tag</th>
-          <th class="p-3 font-semibold">Active</th>
-        </tr>
-      </thead>
-      <tbody>
-        {
-          profiles.length ? (
-            profiles.map((p) => (
-              <tr class="border-t border-line">
-                <td class="p-3">
-                  <a href={`/admin/affiliates/${p.id}`} class="font-medium hover:text-accent-strong">{p.name}</a>
-                </td>
-                <td class="p-3 text-muted">{p.network}</td>
-                <td class="p-3"><code class="text-xs">{p.tracking_tag}</code></td>
-                <td class="p-3">{p.is_active ? "Yes" : "No"}</td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colspan="4" class="p-6 text-center text-muted">
-                No profiles yet. <a href="/admin/affiliates/new" class="text-accent-strong">Add one →</a>
-              </td>
-            </tr>
-          )
-        }
-      </tbody>
-    </table>
-  </div>
+  {
+    profiles.length ? (
+      <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {profiles.map((p) => (
+          <a
+            href={`/admin/affiliates/${p.id}`}
+            class="group rounded-xl border border-line bg-surface p-5 transition hover:border-line-strong"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <h3 class="font-semibold text-ink group-hover:text-accent-strong">{p.name}</h3>
+              <span
+                class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
+                style={
+                  p.is_active
+                    ? "color:var(--success); background: color-mix(in srgb, var(--success) 14%, transparent);"
+                    : "color:var(--muted); background: color-mix(in srgb, var(--muted) 14%, transparent);"
+                }
+              >
+                {p.is_active ? "Active" : "Inactive"}
+              </span>
+            </div>
+            <p class="mt-2 text-xs uppercase tracking-wide text-muted">{p.network_name ?? p.network}</p>
+            <p class="mt-2">
+              <code class="rounded bg-surface-2 px-2 py-0.5 text-xs text-ink-soft">{p.tracking_tag}</code>
+            </p>
+            <p class="mt-3 text-xs text-muted">
+              {p.link_count} {p.link_count === 1 ? "product link" : "product links"}
+            </p>
+          </a>
+        ))}
+      </div>
+    ) : (
+      <div class="mt-6 rounded-xl border border-line bg-surface p-8 text-center text-muted">
+        No profiles yet. <a href="/admin/affiliates/new" class="text-accent-strong">Add one →</a>
+      </div>
+    )
+  }
 </AdminLayout>

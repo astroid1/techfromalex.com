@@ -15,7 +15,7 @@ const { items } = Astro.props;
       items.map((c, i) => (
         <li class="flex items-center gap-1.5">
           {c.href ? (
-            <a href={c.href} class="transition hover:text-accent-strong">{c.name}</a>
+            <a href={c.href} class="text-muted transition hover:text-ink">{c.name}</a>
           ) : (
             <span class="text-ink-soft" aria-current="page">{c.name}</span>
           )}

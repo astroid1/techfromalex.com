@@ -48,7 +48,7 @@ const bc = [
   />
   <Container width="wide" class="py-12">
     <Breadcrumbs items={bc} />
-    <h1 class="mt-5 font-display text-4xl font-bold tracking-tight text-ink">{cat.name}</h1>
+    <h1 class="mt-5 font-display text-4xl font-extrabold tracking-tight text-ink sm:text-5xl">{cat.name}</h1>
     {cat.description && <p class="mt-2 max-w-2xl text-ink-soft">{cat.description}</p>}
     <div class="mt-8">
       <PostGrid items={items} empty={`No ${cat.name.toLowerCase()} published yet.`} />

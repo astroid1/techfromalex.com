@@ -105,20 +105,22 @@ export default function CommandPalette() {
           aria-label="Search query"
           className="w-full border-b border-line bg-transparent px-5 py-4 text-ink outline-none placeholder:text-muted"
         />
-        <ul className="max-h-[60vh] overflow-y-auto">
+        <ul className="max-h-[60vh] divide-y divide-line overflow-y-auto">
           {hits.map((h, i) => (
             <li key={h.slug}>
               <a
                 href={`/${h.slug}`}
                 onMouseEnter={() => setActive(i)}
-                className={`block px-5 py-3 transition ${i === active ? "bg-surface-2" : ""}`}
+                className={`block border-l-2 px-5 py-3 transition ${
+                  i === active ? "border-accent bg-surface-2" : "border-transparent"
+                }`}
               >
                 {h.category && (
                   <span className="text-xs font-semibold uppercase tracking-wide text-accent-strong">
                     {h.category}
                   </span>
                 )}
-                <p className="font-medium text-ink">{h.title}</p>
+                <p className="font-semibold text-ink">{h.title}</p>
               </a>
             </li>
           ))}

@@ -28,8 +28,10 @@ const dealPosts = await listPublished(db, { category: "deals", limit: 12 });
   description="Our editors' current tech picks worth your money — linked straight to the retailer for live prices."
 >
   <Container width="wide" class="py-12">
-    <h1 class="font-display text-4xl font-bold tracking-tight text-ink">Today's best tech deals</h1>
-    <p class="mt-2 max-w-2xl text-ink-soft">
+    <h1 class="font-display text-4xl font-extrabold tracking-tight text-ink sm:text-5xl">
+      Today's best tech deals
+    </h1>
+    <p class="mt-3 max-w-2xl text-lg leading-relaxed text-ink-soft">
       Our editors' current picks worth your money. Prices move fast, so we link straight to the
       retailer — you'll always see the live price there.
     </p>
@@ -37,34 +39,32 @@ const dealPosts = await listPublished(db, { category: "deals", limit: 12 });
       <AffiliateDisclosure />
     </div>
 
-    <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div class="mt-10 grid gap-x-7 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
       {
         items.map((p) => (
-          <div class="flex flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow-sm)] transition hover:-translate-y-1 hover:shadow-[var(--shadow-lg)]">
+          <article class="flex flex-col overflow-hidden rounded-2xl border border-line bg-surface transition hover:border-line-strong">
             <div class="aspect-square border-b border-line bg-surface-2">
               <SmartImage src={p.imageUrl} alt={p.name} width={420} class="h-full w-full object-contain p-6" />
             </div>
             <div class="flex flex-1 flex-col gap-2 p-5">
               {p.brand && <p class="text-xs font-semibold uppercase tracking-widest text-muted">{p.brand}</p>}
-              <h2 class="font-display text-lg font-semibold leading-tight text-ink">{p.name}</h2>
+              <h2 class="font-display text-lg font-extrabold leading-snug tracking-tight text-ink">{p.name}</h2>
               {p.rating != null && <RatingStars rating={p.rating} showValue />}
-              <div class="mt-auto flex items-center justify-between gap-3 pt-2">
-                <span class="text-lg font-bold text-ink">{formatPrice(p.priceCents, p.currency) ?? ""}</span>
+              <div class="mt-auto flex items-center justify-between gap-3 pt-3">
+                <span class="text-lg font-extrabold text-ink">{formatPrice(p.priceCents, p.currency) ?? ""}</span>
                 <BuyButton product={p} label="Check price" />
               </div>
             </div>
-          </div>
+          </article>
         ))
       }
     </div>
 
     {
       dealPosts.length > 0 && (
-        <section class="mt-16">
-          <h2 class="font-display text-2xl font-bold text-ink">Deal coverage</h2>
-          <div class="mt-6">
-            <PostGrid items={dealPosts} />
-          </div>
+        <section class="mt-16 border-t border-line pt-12">
+          <h2 class="mb-8 text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">Deal coverage</h2>
+          <PostGrid items={dealPosts} />
         </section>
       )
     }

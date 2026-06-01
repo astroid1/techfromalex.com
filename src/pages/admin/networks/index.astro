@@ -1,0 +1,66 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { getDB } from "@/lib/db";
+
+export const prerender = false;
+const db = getDB(Astro.locals);
+const rows =
+  (
+    await db
+      .prepare(
+        `SELECT n.id, n.name, n.link_param, n.is_active,
+                (SELECT COUNT(*) FROM affiliate_profiles ap WHERE ap.network = n.id) AS profile_count
+         FROM networks n ORDER BY n.name`,
+      )
+      .all<{ id: string; name: string; link_param: string; is_active: number; profile_count: number }>()
+  ).results ?? [];
+---
+
+<AdminLayout title="Networks">
+  <div class="flex items-center justify-between gap-4">
+    <p class="max-w-xl text-sm text-muted">
+      Affiliate networks and how their tracking links are built. Profiles attach to a network; a
+      network that's still in use can't be deleted.
+    </p>
+    <a href="/admin/networks/new" class="shrink-0 rounded-xl bg-accent px-4 py-2.5 font-semibold text-accent-contrast transition hover:brightness-105">
+      + New network
+    </a>
+  </div>
+
+  <div class="mt-6 overflow-hidden rounded-xl border border-line bg-surface">
+    <table class="w-full text-sm">
+      <thead class="bg-surface-2 text-left text-xs uppercase tracking-wide text-muted">
+        <tr>
+          <th class="p-3 font-semibold">Name</th>
+          <th class="p-3 font-semibold">ID</th>
+          <th class="p-3 font-semibold">Tag param</th>
+          <th class="p-3 font-semibold">Profiles</th>
+          <th class="p-3 font-semibold">Active</th>
+        </tr>
+      </thead>
+      <tbody>
+        {
+          rows.length ? (
+            rows.map((n) => (
+              <tr class="border-t border-line">
+                <td class="p-3">
+                  <a href={`/admin/networks/${n.id}`} class="font-medium hover:text-accent-strong">{n.name}</a>
+                </td>
+                <td class="p-3"><code class="text-xs text-muted">{n.id}</code></td>
+                <td class="p-3"><code class="text-xs">{n.link_param || "—"}</code></td>
+                <td class="p-3 text-muted">{n.profile_count}</td>
+                <td class="p-3">{n.is_active ? "Yes" : "No"}</td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colspan="5" class="p-6 text-center text-muted">
+                No networks yet. <a href="/admin/networks/new" class="text-accent-strong">Add one →</a>
+              </td>
+            </tr>
+          )
+        }
+      </tbody>
+    </table>
+  </div>
+</AdminLayout>

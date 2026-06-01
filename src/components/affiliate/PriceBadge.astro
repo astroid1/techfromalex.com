@@ -16,9 +16,13 @@ const price = formatPrice(cents, cur);
 <span class="inline-flex items-baseline gap-1 align-middle">
   {
     price ? (
-      <span class="font-semibold text-ink">{price}</span>
+      <span class="inline-flex items-baseline rounded-lg border border-line bg-surface-2 px-2.5 py-1 font-semibold text-ink">
+        {price}
+      </span>
     ) : (
-      <span class="text-sm font-medium text-muted">Check price</span>
+      <span class="inline-flex items-baseline rounded-lg border border-line bg-surface-2 px-2.5 py-1 text-sm font-medium text-muted">
+        Check price
+      </span>
     )
   }
 </span>

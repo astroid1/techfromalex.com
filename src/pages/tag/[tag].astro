@@ -31,7 +31,7 @@ const items = await listPublished(db, {
   <Container width="wide" class="py-12">
     <Breadcrumbs items={[{ name: "Home", href: "/" }, { name: tagRow.name }]} />
     <p class="mt-5 text-sm font-semibold uppercase tracking-widest text-accent-strong">Tag</p>
-    <h1 class="mt-1 font-display text-4xl font-bold tracking-tight text-ink">{tagRow.name}</h1>
+    <h1 class="mt-1 font-display text-4xl font-extrabold tracking-tight text-ink sm:text-5xl">{tagRow.name}</h1>
     <div class="mt-8">
       <PostGrid items={items} empty="No articles with this tag yet." />
     </div>

@@ -27,7 +27,7 @@ for (const p of items) {
               <span class="sr-only">Attribute</span>
             </th>
             {items.map((p) => (
-              <th scope="col" class="min-w-[10rem] p-3 text-left font-display text-base text-ink">
+              <th scope="col" class="min-w-[10rem] p-3 text-left font-display text-base font-extrabold tracking-tight text-ink">
                 {p.name}
               </th>
             ))}
@@ -35,20 +35,20 @@ for (const p of items) {
         </thead>
         <tbody>
           <tr class="border-t border-line">
-            <th scope="row" class="p-3 text-left font-medium text-muted">Rating</th>
+            <th scope="row" class="p-3 text-left font-semibold text-muted">Rating</th>
             {items.map((p) => (
               <td class="p-3">{p.rating != null ? <RatingStars rating={p.rating} showValue /> : "—"}</td>
             ))}
           </tr>
           <tr class="border-t border-line">
-            <th scope="row" class="p-3 text-left font-medium text-muted">Price</th>
+            <th scope="row" class="p-3 text-left font-semibold text-muted">Price</th>
             {items.map((p) => (
               <td class="p-3 font-semibold text-ink">{formatPrice(p.priceCents, p.currency) ?? "—"}</td>
             ))}
           </tr>
           {specKeys.map((k) => (
             <tr class="border-t border-line">
-              <th scope="row" class="p-3 text-left font-medium text-muted">{k}</th>
+              <th scope="row" class="p-3 text-left font-semibold text-muted">{k}</th>
               {items.map((p) => <td class="p-3 text-ink-soft">{p.specs[k] ?? "—"}</td>)}
             </tr>
           ))}

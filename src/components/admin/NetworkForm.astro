@@ -1,0 +1,107 @@
+---
+interface Props {
+  values?: {
+    id?: string;
+    name?: string;
+    link_param?: string;
+    extra_params_json?: string;
+    param_help?: string;
+    is_active?: number;
+  };
+  error?: string | null;
+  submitLabel?: string;
+  showDelete?: boolean;
+  isNew?: boolean;
+}
+const { values = {}, error = null, submitLabel = "Save", showDelete = false, isNew = false } = Astro.props;
+const input =
+  "mt-1 w-full rounded-lg border border-line-strong bg-paper px-3 py-2 text-ink outline-none transition focus-visible:border-accent";
+---
+
+<form method="POST" class="max-w-lg space-y-5">
+  {
+    error && (
+      <p class="rounded-lg px-4 py-2 text-sm" style="color:var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent)">
+        {error}
+      </p>
+    )
+  }
+  <div class="grid gap-5 sm:grid-cols-2">
+    <label class="block">
+      <span class="text-sm font-medium">Network ID (slug)</span>
+      <input
+        name="id"
+        value={values.id ?? ""}
+        required
+        readonly={!isNew}
+        class={`${input} ${!isNew ? "opacity-60" : ""}`}
+        placeholder="walmart"
+      />
+      <span class="mt-1 block text-xs text-muted">Lowercase, no spaces. Permanent once created.</span>
+    </label>
+    <label class="block">
+      <span class="text-sm font-medium">Display name</span>
+      <input name="name" value={values.name ?? ""} required class={input} placeholder="Walmart Affiliates" />
+    </label>
+  </div>
+  <label class="block">
+    <span class="text-sm font-medium">Tag query parameter</span>
+    <input name="link_param" value={values.link_param ?? "tag"} class={input} placeholder="tag" />
+    <span class="mt-1 block text-xs text-muted">
+      Query param that carries the tracking tag (e.g. <code>tag</code> for Amazon, <code>irclickid</code> for
+      Impact). Leave empty for "manual" networks where the link is already complete.
+    </span>
+  </label>
+  <label class="block">
+    <span class="text-sm font-medium">Static extra params (JSON)</span>
+    <textarea name="extra_params_json" rows="2" class={`${input} font-mono text-sm`}>{values.extra_params_json ?? "{}"}</textarea>
+    <span class="mt-1 block text-xs text-muted">Optional fixed query params added to every link, as a JSON object (default <code>&#123;&#125;</code>).</span>
+  </label>
+  <label class="block">
+    <span class="text-sm font-medium">Tag field help</span>
+    <input name="param_help" value={values.param_help ?? ""} class={input} placeholder="Your Walmart Impact publisher ID." />
+    <span class="mt-1 block text-xs text-muted">Shown as guidance when entering a profile's tag for this network.</span>
+  </label>
+  <div class="rounded-lg border border-line bg-surface-2 p-3 text-xs text-muted">
+    Example link: <code data-net-preview class="text-ink-soft">https://example.com/p?tag=YOUR-TAG</code>
+  </div>
+  <label class="flex items-center gap-2">
+    <input type="checkbox" name="is_active" value="1" checked={values.is_active === undefined || values.is_active === 1} />
+    <span class="text-sm font-medium">Active (selectable when creating profiles)</span>
+  </label>
+  <div class="flex items-center gap-3 pt-2">
+    <button class="rounded-xl bg-accent px-5 py-2.5 font-semibold text-accent-contrast transition hover:brightness-105">
+      {submitLabel}
+    </button>
+    <a href="/admin/networks" class="rounded-xl border border-line-strong px-5 py-2.5 font-semibold transition hover:bg-surface-2">
+      Cancel
+    </a>
+    {
+      showDelete && (
+        <button
+          formaction="?delete=1"
+          class="ml-auto rounded-xl px-4 py-2.5 text-sm font-semibold transition hover:bg-surface-2"
+          style="color:var(--danger)"
+        >
+          Delete
+        </button>
+      )
+    }
+  </div>
+</form>
+
+<script is:inline>
+  (function () {
+    var param = document.querySelector('[name="link_param"]');
+    var prev = document.querySelector("[data-net-preview]");
+    if (!param || !prev) return;
+    function upd() {
+      var p = (param.value || "").trim();
+      prev.textContent = p
+        ? "https://example.com/p?" + p + "=YOUR-TAG"
+        : "https://example.com/p   (no tag appended — manual link)";
+    }
+    param.addEventListener("input", upd);
+    upd();
+  })();
+</script>

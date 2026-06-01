@@ -16,10 +16,10 @@ const keyPoints = s.keyPoints ?? [];
 <div class="not-prose mb-10 space-y-5">
   {
     isDeal && (
-      <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-accent px-6 py-4 text-accent-contrast shadow-[var(--shadow-md)]">
+      <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-accent px-6 py-4 text-accent-contrast shadow-[var(--shadow-sm)]">
         <div>
           <p class="text-xs font-semibold uppercase tracking-widest opacity-80">Deal</p>
-          {dealPrice && <p class="font-display text-2xl font-bold">{dealPrice}</p>}
+          {dealPrice && <p class="font-display text-2xl font-extrabold tracking-tight">{dealPrice}</p>}
         </div>
         {content.dealExpiresAt && (
           <p class="text-sm opacity-90">Ends {formatDate(content.dealExpiresAt)}</p>

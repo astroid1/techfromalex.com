@@ -12,18 +12,20 @@ const link = (p: number) => {
   return u.pathname + (u.search || "");
 };
 const btn =
-  "inline-flex items-center gap-1.5 rounded-xl border border-line-strong px-4 py-2 text-sm font-medium text-ink transition hover:bg-surface-2";
+  "inline-flex items-center gap-1.5 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink transition hover:bg-surface-2";
 ---
 
 {
   totalPages > 1 && (
-    <nav class="mt-10 flex items-center justify-between" aria-label="Pagination">
+    <nav class="mt-12 flex items-center justify-between border-t border-line pt-8" aria-label="Pagination">
       {page > 1 ? (
         <a href={link(page - 1)} class={btn} rel="prev">← Newer</a>
       ) : (
         <span />
       )}
-      <span class="text-sm text-muted">Page {page} of {totalPages}</span>
+      <span class="text-sm font-medium text-muted">
+        Page <span class="text-ink">{page}</span> of {totalPages}
+      </span>
       {page < totalPages ? (
         <a href={link(page + 1)} class={btn} rel="next">Older →</a>
       ) : (

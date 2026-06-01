@@ -17,7 +17,7 @@ const text = label ?? `Check price on ${retailerName(product?.buyNetwork)}`;
       href={product.buyUrl}
       target="_blank"
       rel="nofollow sponsored noopener"
-      class={`not-prose group inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-3 font-semibold text-accent-contrast shadow-[var(--shadow-md)] transition hover:brightness-105 active:translate-y-px ${block ? "w-full" : ""}`}
+      class={`btn-accent not-prose group inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 font-semibold ${block ? "w-full" : ""}`}
     >
       {text}
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="transition group-hover:translate-x-0.5">
