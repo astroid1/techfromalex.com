@@ -42,7 +42,7 @@ const orgLd = {
   "@type": "Organization",
   name: SITE,
   url: site.toString(),
-  logo: new URL("/icon.png", site).toString(),
+  logo: new URL("/favicon.svg", site).toString(),
 };
 ---
 
@@ -70,6 +70,8 @@ const orgLd = {
     <meta name="theme-color" content="#c2680e" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#14110d" media="(prefers-color-scheme: dark)" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/site.webmanifest" />
     <link rel="alternate" type="application/rss+xml" title={`${SITE} — RSS`} href="/rss.xml" />
 
     <script is:inline>

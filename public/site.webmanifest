@@ -1,0 +1,12 @@
+{
+  "name": "Tech From Alex",
+  "short_name": "Tech From Alex",
+  "description": "Honest, hands-on tech reviews, guides, and deals.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fbfaf7",
+  "theme_color": "#c2680e",
+  "icons": [
+    { "src": "/favicon.svg", "type": "image/svg+xml", "sizes": "any" }
+  ]
+}
