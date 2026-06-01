@@ -13,6 +13,7 @@ import {
 } from "@/lib/admin";
 import { assertReferences, ReferentialError } from "@/lib/validate";
 import { generateDraft } from "@/lib/ai/generate";
+import { aiEdit } from "@/lib/ai/edit";
 
 export const prerender = false;
 const { id } = Astro.params;
@@ -38,6 +39,65 @@ if (Astro.request.method === "POST") {
       await generateDraft(env, db, id!);
       c = await db.prepare("SELECT * FROM content WHERE id = ?").bind(id).first<any>();
       notice = "AI draft generated — review and edit below.";
+    } catch (e) {
+      error = (e as Error).message;
+    }
+  } else if (action === "ai_edit") {
+    const prompt = String(f.get("ai_prompt") ?? "").trim();
+    const curTitle = String(f.get("title") ?? c.title ?? "");
+    const curBody = String(f.get("body_md") ?? c.body_md ?? "");
+    const curStruct = String(f.get("structured_json") ?? c.structured_json ?? "{}");
+    try {
+      const r = await aiEdit(env, db, id!, prompt, {
+        title: curTitle,
+        bodyMd: curBody,
+        structuredJson: curStruct,
+      });
+      const now = nowIso();
+      await db
+        .prepare(
+          `UPDATE content SET title=?, dek=?, body_md=?, structured_json=?,
+             seo_title=COALESCE(NULLIF(?,''), seo_title), seo_description=?,
+             hero_alt=COALESCE(NULLIF(?,''), hero_alt), verdict_score=COALESCE(?, verdict_score),
+             updated_at=? WHERE id=?`,
+        )
+        .bind(
+          r.title,
+          r.metaDescription || null,
+          r.bodyMarkdown,
+          JSON.stringify(r.structured),
+          r.seoTitle,
+          r.metaDescription || null,
+          r.heroAlt,
+          r.verdictScore,
+          now,
+          id,
+        )
+        .run();
+      await writeRevision(
+        db,
+        id!,
+        {
+          title: r.title,
+          body_md: r.bodyMarkdown,
+          structured_json: JSON.stringify(r.structured),
+          note: `AI edit: ${prompt.slice(0, 90)}`,
+          editedBy: user?.email ?? null,
+        },
+        c.status,
+        "ai",
+        null,
+      );
+      // Published pieces stay in sync immediately after an AI edit.
+      if (c.status === "published") {
+        const tagRows =
+          (await db.prepare("SELECT tag_slug FROM content_tags WHERE content_id=?").bind(id).all<any>())
+            .results ?? [];
+        await syncFts(db, { id: id!, title: r.title, dek: r.metaDescription, bodyMd: r.bodyMarkdown, tags: tagRows.map((t: any) => t.tag_slug) });
+        await purgeContent(env, c.slug, c.category, tagRows.map((t: any) => t.tag_slug));
+      }
+      c = await db.prepare("SELECT * FROM content WHERE id = ?").bind(id).first<any>();
+      notice = r.warnings.length ? `AI edit applied. ${r.warnings.join(" ")}` : "AI edit applied — check the preview.";
     } catch (e) {
       error = (e as Error).message;
     }
@@ -159,118 +219,229 @@ try {
 }
 const input =
   "mt-1 w-full rounded-lg border border-line-strong bg-paper px-3 py-2 text-ink outline-none transition focus-visible:border-accent";
+const previewSrc = `/admin/content/${id}/preview?v=${encodeURIComponent(c.updated_at ?? "")}`;
+const statusLabel = String(c.status).replace("_", " ");
 ---
 
-<AdminLayout title="Edit content">
+<AdminLayout title="Studio">
   {notice && <p class="mb-4 rounded-lg px-4 py-2 text-sm" style="color:var(--success);background:color-mix(in srgb,var(--success) 12%,transparent)">{notice}</p>}
   {error && <p class="mb-4 rounded-lg px-4 py-2 text-sm" style="color:var(--danger);background:color-mix(in srgb,var(--danger) 12%,transparent)">{error}</p>}
 
-  <form method="POST" class="grid gap-8 lg:grid-cols-[1fr_18rem]">
-    <div class="min-w-0 space-y-5">
-      <label class="block">
-        <span class="text-sm font-medium">Title</span>
-        <input name="title" value={c.title} required class={input} />
-      </label>
-      <div class="grid gap-5 sm:grid-cols-2">
-        <label class="block">
-          <span class="text-sm font-medium">Slug</span>
-          <input name="slug" value={c.slug} class={input} />
-        </label>
-        <label class="block">
-          <span class="text-sm font-medium">Category</span>
-          <select name="category" class={input}>
-            <option value="">— none —</option>
-            {cats.map((cat: any) => <option value={cat.slug} selected={c.category === cat.slug}>{cat.name}</option>)}
-          </select>
-        </label>
-      </div>
-      <label class="block">
-        <span class="text-sm font-medium">Meta description</span>
-        <input name="dek" value={c.dek ?? ""} class={input} />
-      </label>
-      {c.type === "review" && (
-        <label class="block max-w-[12rem]">
-          <span class="text-sm font-medium">Verdict score (0–10)</span>
-          <input name="verdict_score" type="number" min="0" max="10" step="0.1" value={c.verdict_score ?? ""} class={input} />
-        </label>
-      )}
-      <label class="block">
-        <span class="text-sm font-medium">Body (directive-markdown)</span>
-        <textarea name="body_md" rows="22" class={`${input} font-mono text-sm leading-relaxed`}>{c.body_md}</textarea>
-        <span class="mt-1 block text-xs text-muted">
-          Use <code>::product-card&#123;id="..."&#125;</code>, <code>::buy-button&#123;id="..."&#125;</code>,
-          <code>:::callout</code>, <code>:::pros-cons</code>, and <code>:product[label]&#123;id="..."&#125;</code>.
+  <form method="POST" id="studio-form">
+    {/* ---- Action bar ---- */}
+    <div class="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
+      <div>
+        <span class="inline-flex items-center gap-1.5 text-sm font-semibold capitalize">
+          <span class="h-2 w-2 rounded-full" style={`background:${c.status === "published" ? "var(--success)" : c.status === "in_review" ? "var(--accent)" : "var(--muted)"}`} />
+          {statusLabel}
         </span>
-      </label>
-      <label class="block">
-        <span class="text-sm font-medium">Template data (JSON)</span>
-        <textarea name="structured_json" rows="8" class={`${input} font-mono text-sm`}>{prettyStructured}</textarea>
-      </label>
-      <div class="grid gap-5 sm:grid-cols-2">
-        <label class="block">
-          <span class="text-sm font-medium">Hero image URL</span>
-          <input name="hero_image_url" value={c.hero_image_url ?? ""} class={input} placeholder="/media/... or https://" />
-        </label>
-        <label class="block">
-          <span class="text-sm font-medium">Hero alt text</span>
-          <input name="hero_alt" value={c.hero_alt ?? ""} class={input} />
-        </label>
+        <span class="ml-2 text-xs text-muted">{c.type} · updated {formatDate(c.updated_at)}</span>
       </div>
-      <details class="rounded-lg border border-line">
-        <summary class="cursor-pointer px-4 py-2 text-sm font-medium">SEO overrides</summary>
-        <div class="space-y-4 p-4 pt-0">
-          <label class="block"><span class="text-sm font-medium">SEO title</span><input name="seo_title" value={c.seo_title ?? ""} class={input} /></label>
-          <label class="block"><span class="text-sm font-medium">SEO description</span><input name="seo_description" value={c.seo_description ?? ""} class={input} /></label>
-        </div>
-      </details>
+      <div class="ml-auto flex flex-wrap items-center gap-2">
+        <a href={previewSrc} target="_blank" class="rounded-lg border border-line-strong px-3 py-2 text-sm font-semibold transition hover:bg-surface-2">Open preview ↗</a>
+        {c.status === "published" && <a href={`/${c.slug}`} target="_blank" class="rounded-lg border border-line-strong px-3 py-2 text-sm font-semibold transition hover:bg-surface-2">View live ↗</a>}
+        <button name="__action" value="save" class="rounded-lg border border-line-strong px-3 py-2 text-sm font-semibold transition hover:bg-surface-2">Save draft</button>
+        {c.status === "draft" && <button name="__action" value="submit_review" class="rounded-lg border border-line-strong px-3 py-2 text-sm font-semibold transition hover:bg-surface-2">Submit for review</button>}
+        {c.status !== "published" && <button name="__action" value="publish" class="btn-accent rounded-lg px-4 py-2 text-sm font-semibold">Publish</button>}
+        {c.status === "published" && (
+          <>
+            <button name="__action" value="save" class="btn-accent rounded-lg px-4 py-2 text-sm font-semibold">Save &amp; republish</button>
+            <button name="__action" value="unpublish" class="rounded-lg border border-line-strong px-3 py-2 text-sm font-semibold transition hover:bg-surface-2">Unpublish</button>
+          </>
+        )}
+      </div>
     </div>
 
-    <aside class="space-y-5">
-      <div class="rounded-xl border border-line bg-surface p-4">
-        <p class="text-xs uppercase tracking-wide text-muted">Status</p>
-        <p class="mt-1 font-display text-lg font-bold capitalize">{c.status.replace("_", " ")}</p>
-        <p class="mt-1 text-xs text-muted">{c.type} · updated {formatDate(c.updated_at)}</p>
-        <div class="mt-4 space-y-2">
-          <button name="__action" value="save" class="w-full rounded-lg border border-line-strong px-3 py-2 text-sm font-semibold transition hover:bg-surface-2">Save draft</button>
-          {c.status !== "published" && (
-            <button name="__action" value="publish" class="w-full rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-accent-contrast transition hover:brightness-105">Publish</button>
-          )}
-          {c.status === "published" && (
-            <>
-              <button name="__action" value="save" class="w-full rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-accent-contrast transition hover:brightness-105">Save &amp; republish</button>
-              <button name="__action" value="unpublish" class="w-full rounded-lg border border-line-strong px-3 py-2 text-sm font-semibold transition hover:bg-surface-2">Unpublish</button>
-            </>
-          )}
-          {c.status === "draft" && (
-            <button name="__action" value="submit_review" class="w-full rounded-lg border border-line-strong px-3 py-2 text-sm font-semibold transition hover:bg-surface-2">Submit for review</button>
-          )}
-          <button name="__action" value="ai_generate" class="w-full rounded-lg border border-line-strong px-3 py-2 text-sm font-semibold text-accent-strong transition hover:bg-surface-2">✨ Regenerate with AI</button>
+    {/* ---- AI edit bar ---- */}
+    <div class="mb-5 rounded-xl border border-line bg-surface p-3">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <input
+          name="ai_prompt"
+          data-ai-prompt
+          class={`${input} mt-0 flex-1`}
+          placeholder="Ask AI to edit — e.g. tighten the intro, add a battery-life section, make the verdict more critical…"
+        />
+        <button name="__action" value="ai_edit" data-ai-btn class="btn-accent shrink-0 rounded-lg px-4 py-2.5 text-sm font-semibold">✨ AI edit</button>
+        <button name="__action" value="ai_generate" class="shrink-0 rounded-lg border border-line-strong px-3 py-2.5 text-sm font-semibold text-ink-soft transition hover:bg-surface-2" onclick="return confirm('Regenerate the whole draft from scratch? This replaces the body and template data.')">Regenerate all</button>
+      </div>
+      <p class="mt-1.5 text-xs text-muted" data-ai-hint>Targeted change applied to the current draft, then saved (~10–30s). Unsaved edits in the fields are included.</p>
+    </div>
+
+    {/* ---- Two-pane: editor + live preview ---- */}
+    <div class="grid gap-6 xl:grid-cols-2">
+      <div class="min-w-0 space-y-5">
+        <label class="block">
+          <span class="text-sm font-medium">Title</span>
+          <input name="title" value={c.title} required class={input} />
+        </label>
+        <div class="grid gap-5 sm:grid-cols-2">
+          <label class="block">
+            <span class="text-sm font-medium">Slug</span>
+            <input name="slug" value={c.slug} class={input} />
+          </label>
+          <label class="block">
+            <span class="text-sm font-medium">Category</span>
+            <select name="category" class={input}>
+              <option value="">— none —</option>
+              {cats.map((cat: any) => <option value={cat.slug} selected={c.category === cat.slug}>{cat.name}</option>)}
+            </select>
+          </label>
         </div>
-        <div class="mt-3 flex gap-3 text-sm">
-          <a href={`/admin/content/${id}/preview`} class="text-accent-strong hover:underline">Preview</a>
-          {c.status === "published" && <a href={`/${c.slug}`} target="_blank" class="text-accent-strong hover:underline">View live ↗</a>}
+        <label class="block">
+          <span class="text-sm font-medium">Meta description / dek</span>
+          <input name="dek" value={c.dek ?? ""} class={input} />
+        </label>
+        {c.type === "review" && (
+          <label class="block max-w-[12rem]">
+            <span class="text-sm font-medium">Verdict score (0–10)</span>
+            <input name="verdict_score" type="number" min="0" max="10" step="0.1" value={c.verdict_score ?? ""} class={input} />
+          </label>
+        )}
+
+        <div>
+          <span class="text-sm font-medium">Body (directive-markdown)</span>
+          <div class="mt-1 flex flex-wrap gap-1.5" data-insert-bar>
+            <button type="button" data-insert="product-card" class="rounded-md border border-line-strong px-2 py-1 text-xs font-medium text-ink-soft transition hover:bg-surface-2">Product card</button>
+            <button type="button" data-insert="buy-button" class="rounded-md border border-line-strong px-2 py-1 text-xs font-medium text-ink-soft transition hover:bg-surface-2">Buy button</button>
+            <button type="button" data-insert="callout" class="rounded-md border border-line-strong px-2 py-1 text-xs font-medium text-ink-soft transition hover:bg-surface-2">Callout</button>
+            <button type="button" data-insert="pros-cons" class="rounded-md border border-line-strong px-2 py-1 text-xs font-medium text-ink-soft transition hover:bg-surface-2">Pros / cons</button>
+            <button type="button" data-insert="comparison" class="rounded-md border border-line-strong px-2 py-1 text-xs font-medium text-ink-soft transition hover:bg-surface-2">Comparison</button>
+            <button type="button" data-insert="inline" class="rounded-md border border-line-strong px-2 py-1 text-xs font-medium text-ink-soft transition hover:bg-surface-2">Inline link</button>
+          </div>
+          <textarea name="body_md" data-body rows="20" class={`${input} font-mono text-sm leading-relaxed`}>{c.body_md}</textarea>
+        </div>
+
+        <details class="rounded-lg border border-line">
+          <summary class="cursor-pointer px-4 py-2 text-sm font-medium">Template data (JSON) — advanced</summary>
+          <div class="p-4 pt-0">
+            <textarea name="structured_json" rows="8" class={`${input} font-mono text-sm`}>{prettyStructured}</textarea>
+          </div>
+        </details>
+
+        <div class="grid gap-5 sm:grid-cols-2">
+          <label class="block">
+            <span class="text-sm font-medium">Hero image URL</span>
+            <input name="hero_image_url" value={c.hero_image_url ?? ""} class={input} placeholder="/img/uploads/… or https://" />
+          </label>
+          <label class="block">
+            <span class="text-sm font-medium">Hero alt text</span>
+            <input name="hero_alt" value={c.hero_alt ?? ""} class={input} />
+          </label>
+        </div>
+        <details class="rounded-lg border border-line">
+          <summary class="cursor-pointer px-4 py-2 text-sm font-medium">SEO overrides</summary>
+          <div class="space-y-4 p-4 pt-0">
+            <label class="block"><span class="text-sm font-medium">SEO title</span><input name="seo_title" value={c.seo_title ?? ""} class={input} /></label>
+            <label class="block"><span class="text-sm font-medium">SEO description</span><input name="seo_description" value={c.seo_description ?? ""} class={input} /></label>
+          </div>
+        </details>
+
+        <div class="flex flex-wrap items-start gap-x-8 gap-y-4 border-t border-line pt-5">
+          {relProducts.length > 0 && (
+            <div>
+              <p class="text-xs uppercase tracking-wide text-muted">Linked products</p>
+              <ul class="mt-2 space-y-1 text-sm">{relProducts.map((p: any) => <li>{p.name}</li>)}</ul>
+            </div>
+          )}
+          {revisions.length > 0 && (
+            <div>
+              <p class="text-xs uppercase tracking-wide text-muted">History</p>
+              <ul class="mt-2 space-y-1.5 text-xs text-muted">
+                {revisions.map((r: any) => <li>{formatDate(r.created_at)} · {r.source} · {r.status_at_save}</li>)}
+              </ul>
+            </div>
+          )}
+          <button name="__action" value="delete" class="ml-auto rounded-lg px-3 py-2 text-sm font-semibold transition hover:bg-surface-2" style="color:var(--danger)" onclick="return confirm('Delete this content permanently?')">Delete</button>
         </div>
       </div>
 
-      {relProducts.length > 0 && (
-        <div class="rounded-xl border border-line bg-surface p-4">
-          <p class="text-xs uppercase tracking-wide text-muted">Linked products</p>
-          <ul class="mt-2 space-y-1 text-sm">{relProducts.map((p: any) => <li>{p.name}</li>)}</ul>
+      {/* ---- Live preview ---- */}
+      <div class="min-w-0">
+        <div class="sticky top-4">
+          <div class="mb-2 flex items-center justify-between">
+            <p class="text-xs uppercase tracking-wide text-muted">Live preview <span class="text-muted/70">(updates on save)</span></p>
+            <button type="button" data-prev-refresh class="text-xs font-semibold text-accent-strong transition hover:brightness-110">Refresh ↻</button>
+          </div>
+          <iframe
+            data-preview
+            src={previewSrc}
+            title="Live preview"
+            class="h-[78vh] w-full rounded-xl border border-line bg-surface"
+          ></iframe>
         </div>
-      )}
+      </div>
+    </div>
 
-      {revisions.length > 0 && (
-        <div class="rounded-xl border border-line bg-surface p-4">
-          <p class="text-xs uppercase tracking-wide text-muted">History</p>
-          <ul class="mt-2 space-y-1.5 text-xs text-muted">
-            {revisions.map((r: any) => (
-              <li>{formatDate(r.created_at)} · {r.source} · {r.status_at_save}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      <button name="__action" value="delete" class="w-full rounded-lg px-3 py-2 text-sm font-semibold transition hover:bg-surface-2" style="color:var(--danger)" onclick="return confirm('Delete this content permanently?')">Delete</button>
-    </aside>
+    {/* ---- AI edit loading overlay ---- */}
+    <div data-ai-overlay hidden class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div class="rounded-2xl border border-line bg-surface px-6 py-5 text-center">
+        <p class="font-display text-lg font-bold text-ink">✨ AI is editing…</p>
+        <p class="mt-1 text-sm text-muted">Applying your change and saving. This can take 10–30s.</p>
+      </div>
+    </div>
   </form>
+
+  <script is:inline>
+    (function () {
+      var form = document.getElementById("studio-form");
+      if (!form) return;
+
+      // Insert directive snippets at the cursor in the body textarea.
+      var SNIPPETS = {
+        "product-card": "\n::product-card{id=\"PRODUCT_ID\"}\n",
+        "buy-button": "\n::buy-button{id=\"PRODUCT_ID\"}\n",
+        "callout": "\n:::callout{type=\"info\" title=\"Heads up\"}\nYour note here.\n:::\n",
+        "pros-cons": "\n:::pros-cons\npros:\n- A good thing\ncons:\n- A downside\n:::\n",
+        "comparison": "\n:::comparison{ids=\"id1,id2\"}\n:::\n",
+        "inline": ":product[label]{id=\"PRODUCT_ID\"}"
+      };
+      var body = form.querySelector("[data-body]");
+      var bar = form.querySelector("[data-insert-bar]");
+      if (body && bar) {
+        bar.addEventListener("click", function (e) {
+          var btn = e.target.closest("[data-insert]");
+          if (!btn) return;
+          var snippet = SNIPPETS[btn.getAttribute("data-insert")] || "";
+          if (!snippet) return;
+          var start = body.selectionStart || 0;
+          var end = body.selectionEnd || 0;
+          body.value = body.value.slice(0, start) + snippet + body.value.slice(end);
+          var pos = start + snippet.length;
+          body.focus();
+          body.setSelectionRange(pos, pos);
+        });
+      }
+
+      // Enter in the AI prompt triggers the AI edit (not the first form button).
+      var prompt = form.querySelector("[data-ai-prompt]");
+      var aiBtn = form.querySelector("[data-ai-btn]");
+      if (prompt && aiBtn) {
+        prompt.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            aiBtn.click();
+          }
+        });
+      }
+
+      // Show the loading overlay while an AI action runs (full-page POST).
+      var overlay = form.querySelector("[data-ai-overlay]");
+      form.addEventListener("submit", function (e) {
+        var a = e.submitter && e.submitter.getAttribute("value");
+        if ((a === "ai_edit" || a === "ai_generate") && overlay) {
+          overlay.hidden = false;
+          overlay.style.display = "flex";
+        }
+      });
+
+      // Manual preview refresh.
+      var iframe = form.querySelector("[data-preview]");
+      var refresh = form.querySelector("[data-prev-refresh]");
+      if (iframe && refresh) {
+        refresh.addEventListener("click", function () {
+          iframe.src = iframe.src;
+        });
+      }
+    })();
+  </script>
 </AdminLayout>
