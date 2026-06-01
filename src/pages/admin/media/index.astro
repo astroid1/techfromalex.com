@@ -1,0 +1,59 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { getDB } from "@/lib/db";
+import { formatDate } from "@/lib/format";
+
+export const prerender = false;
+const db = getDB(Astro.locals);
+const error = Astro.url.searchParams.get("error");
+const rows =
+  (await db
+    .prepare("SELECT id, url_path, alt, mime, bytes, created_at FROM media ORDER BY created_at DESC LIMIT 200")
+    .all<{ id: string; url_path: string; alt: string; mime: string; bytes: number; created_at: string }>())
+    .results ?? [];
+const input =
+  "mt-1 w-full rounded-lg border border-line-strong bg-paper px-3 py-2 text-ink outline-none transition focus-visible:border-accent";
+const kb = (n: number) => `${Math.round(n / 1024)} KB`;
+---
+
+<AdminLayout title="Media">
+  {error && <p class="mb-4 rounded-lg px-4 py-2 text-sm" style="color:var(--danger);background:color-mix(in srgb,var(--danger) 12%,transparent)">{error}</p>}
+
+  <div class="rounded-xl border border-line bg-surface p-5">
+    <h2 class="font-display text-lg font-bold">Upload an image</h2>
+    <p class="mt-1 text-sm text-muted">Uploads go to R2 and are served from <code>/img/…</code>. Copy a path onto a product or article.</p>
+    <form method="POST" action="/api/admin/media/upload" enctype="multipart/form-data" class="mt-4 flex flex-wrap items-end gap-4">
+      <label class="block">
+        <span class="text-sm font-medium">File</span>
+        <input type="file" name="file" accept="image/*" required class="mt-1 block text-sm" />
+      </label>
+      <label class="block flex-1 min-w-[16rem]">
+        <span class="text-sm font-medium">Alt text (required)</span>
+        <input name="alt" required class={input} placeholder="Describe the image for accessibility & SEO" />
+      </label>
+      <button class="rounded-xl bg-accent px-5 py-2.5 font-semibold text-accent-contrast transition hover:brightness-105">Upload</button>
+    </form>
+  </div>
+
+  <h2 class="mt-8 font-display text-lg font-bold">Library</h2>
+  {
+    rows.length ? (
+      <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {rows.map((m) => (
+          <div class="overflow-hidden rounded-xl border border-line bg-surface">
+            <div class="aspect-video bg-surface-2">
+              <img src={m.url_path} alt={m.alt} loading="lazy" class="h-full w-full object-contain" />
+            </div>
+            <div class="p-3">
+              <p class="truncate text-sm font-medium" title={m.alt}>{m.alt}</p>
+              <p class="mt-0.5 text-xs text-muted">{kb(m.bytes)} · {formatDate(m.created_at)}</p>
+              <code class="mt-1 block truncate text-xs text-accent-strong" title={m.url_path}>{m.url_path}</code>
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <p class="mt-4 rounded-xl border border-line bg-surface p-6 text-muted">No images yet. Upload one above.</p>
+    )
+  }
+</AdminLayout>

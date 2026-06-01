@@ -100,3 +100,28 @@ export async function uniqueSlug(
   }
   return `${base}-${ulid().slice(-4).toLowerCase()}`;
 }
+
+/** Parse the ProductForm fields into DB-ready values. */
+export function parseProductForm(form: FormData) {
+  const lines = (s: string) =>
+    s.split("\n").map((l) => l.trim()).filter(Boolean);
+  const priceStr = String(form.get("price") ?? "").trim();
+  const ratingStr = String(form.get("rating") ?? "").trim();
+  const specs: Record<string, string> = {};
+  for (const line of lines(String(form.get("specs") ?? ""))) {
+    const i = line.indexOf(":");
+    if (i > 0) specs[line.slice(0, i).trim()] = line.slice(i + 1).trim();
+  }
+  return {
+    name: String(form.get("name") ?? "").trim(),
+    brand: String(form.get("brand") ?? "").trim() || null,
+    category: String(form.get("category") ?? "").trim() || null,
+    image_url: String(form.get("image_url") ?? "").trim() || null,
+    price_cents: priceStr ? Math.round(parseFloat(priceStr) * 100) : null,
+    rating: ratingStr ? parseFloat(ratingStr) : null,
+    description: String(form.get("description") ?? "").trim() || null,
+    pros: lines(String(form.get("pros") ?? "")),
+    cons: lines(String(form.get("cons") ?? "")),
+    specs,
+  };
+}

@@ -33,7 +33,8 @@ id = "f2d7567f5fb24d188241a58fbd81324b"
 
 # --- Public vars (non-secret) --------------------------------------------
 [vars]
-ADMIN_EMAIL = "alex258.hirt@gmail.com"
+ADMIN_EMAIL = "admin@astroidmedia.com"
 SITE_URL = "https://techfromalex.com"
-# CF_ACCESS_TEAM_DOMAIN / CF_ACCESS_AUD set in Phase 4.
+CF_ACCESS_TEAM_DOMAIN = "https://astroid1.cloudflareaccess.com"
+CF_ACCESS_AUD = "98b2315edcdf35d95a422225957d218c3d8c02a49f8070c071c5a844dd4d1420"
 # Secrets (ANTHROPIC_API_KEY, affiliate keys) via `wrangler secret put`.

@@ -1,0 +1,81 @@
+---
+interface Props {
+  values?: {
+    name?: string;
+    brand?: string;
+    category?: string;
+    image_url?: string;
+    price?: string | number;
+    rating?: string | number;
+    description?: string;
+    prosText?: string;
+    consText?: string;
+    specsText?: string;
+  };
+  error?: string | null;
+  submitLabel?: string;
+}
+const { values = {}, error = null, submitLabel = "Save product" } = Astro.props;
+const input =
+  "mt-1 w-full rounded-lg border border-line-strong bg-paper px-3 py-2 text-ink outline-none transition focus-visible:border-accent";
+---
+
+<form method="POST" class="max-w-2xl space-y-5">
+  {
+    error && (
+      <p class="rounded-lg px-4 py-2 text-sm" style="color:var(--danger);background:color-mix(in srgb,var(--danger) 12%,transparent)">
+        {error}
+      </p>
+    )
+  }
+  <div class="grid gap-5 sm:grid-cols-2">
+    <label class="block">
+      <span class="text-sm font-medium">Name</span>
+      <input name="name" value={values.name ?? ""} required class={input} placeholder="Sony WH-1000XM6" />
+    </label>
+    <label class="block">
+      <span class="text-sm font-medium">Brand</span>
+      <input name="brand" value={values.brand ?? ""} class={input} placeholder="Sony" />
+    </label>
+  </div>
+  <div class="grid gap-5 sm:grid-cols-3">
+    <label class="block">
+      <span class="text-sm font-medium">Category</span>
+      <input name="category" value={values.category ?? ""} class={input} placeholder="headphones" />
+    </label>
+    <label class="block">
+      <span class="text-sm font-medium">Price (USD)</span>
+      <input name="price" type="number" step="0.01" min="0" value={values.price ?? ""} class={input} placeholder="349.99" />
+    </label>
+    <label class="block">
+      <span class="text-sm font-medium">Rating (0–5)</span>
+      <input name="rating" type="number" step="0.1" min="0" max="5" value={values.rating ?? ""} class={input} placeholder="4.6" />
+    </label>
+  </div>
+  <label class="block">
+    <span class="text-sm font-medium">Image URL</span>
+    <input name="image_url" value={values.image_url ?? ""} class={input} placeholder="/img/uploads/… (from Media) or https://…" />
+  </label>
+  <label class="block">
+    <span class="text-sm font-medium">Description</span>
+    <textarea name="description" rows="3" class={input}>{values.description ?? ""}</textarea>
+  </label>
+  <div class="grid gap-5 sm:grid-cols-2">
+    <label class="block">
+      <span class="text-sm font-medium">Pros (one per line)</span>
+      <textarea name="pros" rows="5" class={input}>{values.prosText ?? ""}</textarea>
+    </label>
+    <label class="block">
+      <span class="text-sm font-medium">Cons (one per line)</span>
+      <textarea name="cons" rows="5" class={input}>{values.consText ?? ""}</textarea>
+    </label>
+  </div>
+  <label class="block">
+    <span class="text-sm font-medium">Specs (one per line, <code>Key: Value</code>)</span>
+    <textarea name="specs" rows="6" class={`${input} font-mono text-sm`}>{values.specsText ?? ""}</textarea>
+  </label>
+  <div class="flex items-center gap-3 pt-1">
+    <button class="rounded-xl bg-accent px-5 py-2.5 font-semibold text-accent-contrast transition hover:brightness-105">{submitLabel}</button>
+    <a href="/admin/products" class="rounded-xl border border-line-strong px-5 py-2.5 font-semibold transition hover:bg-surface-2">Cancel</a>
+  </div>
+</form>

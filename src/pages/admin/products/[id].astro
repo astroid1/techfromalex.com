@@ -1,0 +1,152 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import ProductForm from "@/components/admin/ProductForm.astro";
+import { getDB } from "@/lib/db";
+import { nowIso, ulid } from "@/lib/ids";
+import { parseProductForm } from "@/lib/admin";
+
+export const prerender = false;
+const { id } = Astro.params;
+const db = getDB(Astro.locals);
+let error: string | null = null;
+let notice: string | null = null;
+
+let p = await db.prepare("SELECT * FROM products WHERE id = ?").bind(id).first<any>();
+if (!p) return Astro.redirect("/admin/products");
+
+if (Astro.request.method === "POST") {
+  const f = await Astro.request.formData();
+  const action = String(f.get("__action") ?? "save");
+
+  if (action === "delete") {
+    try {
+      await db.prepare("DELETE FROM products WHERE id = ?").bind(id).run();
+      return Astro.redirect("/admin/products");
+    } catch {
+      error = "Can't delete — this product is referenced by an article. Remove it from that content first.";
+    }
+  } else if (action === "addLink") {
+    const profile = String(f.get("affiliate_profile_id") ?? "");
+    const baseUrl = String(f.get("base_url") ?? "").trim();
+    const isPrimary = f.get("is_primary") ? 1 : 0;
+    if (!profile || !baseUrl) error = "Pick a profile and enter a URL.";
+    else {
+      try {
+        await db
+          .prepare(
+            `INSERT INTO product_links (id,product_id,affiliate_profile_id,base_url,is_primary,created_at,updated_at) VALUES (?,?,?,?,?,?,?)`,
+          )
+          .bind(ulid(), id, profile, baseUrl, isPrimary, nowIso(), nowIso())
+          .run();
+        notice = "Link added.";
+      } catch (e) {
+        error = String((e as Error).message).includes("UNIQUE")
+          ? "A link for that profile already exists on this product."
+          : (e as Error).message;
+      }
+    }
+  } else if (action === "removeLink") {
+    await db
+      .prepare("DELETE FROM product_links WHERE id = ? AND product_id = ?")
+      .bind(String(f.get("linkId") ?? ""), id)
+      .run();
+    notice = "Link removed.";
+  } else {
+    const pf = parseProductForm(f);
+    if (!pf.name) error = "Name is required.";
+    if (!error) {
+      try {
+        await db
+          .prepare(
+            `UPDATE products SET name=?,brand=?,category=?,image_url=?,price_cents=?,rating=?,description=?,pros_json=?,cons_json=?,specs_json=?,updated_at=? WHERE id=?`,
+          )
+          .bind(
+            pf.name, pf.brand, pf.category, pf.image_url, pf.price_cents, pf.rating, pf.description,
+            JSON.stringify(pf.pros), JSON.stringify(pf.cons), JSON.stringify(pf.specs), nowIso(), id,
+          )
+          .run();
+        notice = "Saved.";
+      } catch (e) {
+        error = (e as Error).message;
+      }
+    }
+  }
+  p = await db.prepare("SELECT * FROM products WHERE id = ?").bind(id).first<any>();
+}
+
+const pros = JSON.parse(p.pros_json || "[]");
+const cons = JSON.parse(p.cons_json || "[]");
+const specs = JSON.parse(p.specs_json || "{}");
+const values = {
+  name: p.name, brand: p.brand, category: p.category, image_url: p.image_url,
+  price: p.price_cents != null ? p.price_cents / 100 : "", rating: p.rating ?? "",
+  description: p.description, prosText: pros.join("\n"), consText: cons.join("\n"),
+  specsText: Object.entries(specs).map(([k, v]) => `${k}: ${v}`).join("\n"),
+};
+const links =
+  (await db
+    .prepare(
+      `SELECT pl.id, pl.base_url, pl.is_primary, ap.name AS profile_name, ap.network
+       FROM product_links pl JOIN affiliate_profiles ap ON ap.id = pl.affiliate_profile_id
+       WHERE pl.product_id = ? ORDER BY pl.is_primary DESC`,
+    )
+    .bind(id)
+    .all<any>()).results ?? [];
+const profiles =
+  (await db.prepare("SELECT id,name FROM affiliate_profiles WHERE is_active=1 ORDER BY name").all<any>())
+    .results ?? [];
+const input =
+  "mt-1 w-full rounded-lg border border-line-strong bg-paper px-3 py-2 text-ink outline-none transition focus-visible:border-accent";
+---
+
+<AdminLayout title="Edit product">
+  {notice && <p class="mb-4 rounded-lg px-4 py-2 text-sm" style="color:var(--success);background:color-mix(in srgb,var(--success) 12%,transparent)">{notice}</p>}
+  {error && <p class="mb-4 rounded-lg px-4 py-2 text-sm" style="color:var(--danger);background:color-mix(in srgb,var(--danger) 12%,transparent)">{error}</p>}
+
+  <ProductForm values={values} submitLabel="Save product" />
+
+  <section class="mt-8 max-w-2xl rounded-xl border border-line bg-surface p-5">
+    <h2 class="font-display text-lg font-bold">Affiliate buy links</h2>
+    <p class="mt-1 text-sm text-muted">Each link maps a retailer URL to an affiliate profile. The primary link powers the Buy button.</p>
+
+    {
+      links.length > 0 && (
+        <ul class="mt-4 divide-y divide-line">
+          {links.map((l: any) => (
+            <li class="flex items-center gap-3 py-2 text-sm">
+              <span class="font-medium">{l.profile_name}</span>
+              {l.is_primary ? <span class="rounded bg-accent px-1.5 py-0.5 text-xs text-accent-contrast">primary</span> : null}
+              <code class="min-w-0 flex-1 truncate text-xs text-muted" title={l.base_url}>{l.base_url}</code>
+              <form method="POST">
+                <input type="hidden" name="__action" value="removeLink" />
+                <input type="hidden" name="linkId" value={l.id} />
+                <button class="text-xs font-semibold" style="color:var(--danger)">Remove</button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+
+    <form method="POST" class="mt-4 flex flex-wrap items-end gap-3">
+      <input type="hidden" name="__action" value="addLink" />
+      <label class="block">
+        <span class="text-sm font-medium">Profile</span>
+        <select name="affiliate_profile_id" class={input}>
+          {profiles.map((pr: any) => <option value={pr.id}>{pr.name}</option>)}
+        </select>
+      </label>
+      <label class="block flex-1 min-w-[16rem]">
+        <span class="text-sm font-medium">Retailer URL</span>
+        <input name="base_url" class={input} placeholder="https://www.amazon.com/dp/…" />
+      </label>
+      <label class="flex items-center gap-2 pb-2"><input type="checkbox" name="is_primary" value="1" /><span class="text-sm">Primary</span></label>
+      <button class="rounded-xl border border-line-strong px-4 py-2.5 font-semibold transition hover:bg-surface-2">Add link</button>
+    </form>
+  </section>
+
+  <form method="POST" class="mt-6 max-w-2xl">
+    <input type="hidden" name="__action" value="delete" />
+    <button class="text-sm font-semibold" style="color:var(--danger)" onclick="return confirm('Delete this product permanently?')">Delete product</button>
+  </form>
+</AdminLayout>
