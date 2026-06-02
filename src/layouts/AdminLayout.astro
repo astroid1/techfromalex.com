@@ -54,9 +54,33 @@ const active = (href: string) =>
       </aside>
 
       <div class="flex min-w-0 flex-1 flex-col">
-        <header class="flex items-center justify-between border-b border-line bg-surface px-6 py-3">
-          <h1 class="font-display text-xl font-bold">{title}</h1>
-          {user && <span class="text-sm text-muted">{user.email}</span>}
+        <header class="flex items-center justify-between gap-3 border-b border-line bg-surface px-4 py-3 md:px-6">
+          <div class="flex min-w-0 items-center gap-2">
+            <details class="relative md:hidden">
+              <summary class="grid h-9 w-9 cursor-pointer list-none place-items-center rounded-lg text-ink-soft transition hover:bg-surface-2">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                </svg>
+              </summary>
+              <nav class="absolute left-0 top-11 z-30 w-56 rounded-xl border border-line bg-surface p-2 shadow-[var(--shadow-lg)]" aria-label="Admin">
+                {
+                  nav.map((n) => (
+                    <a
+                      href={n.href}
+                      class={`block rounded-lg px-3 py-2 text-sm font-medium transition ${active(n.href) ? "bg-accent text-accent-contrast" : "text-ink-soft hover:bg-surface-2"}`}
+                    >
+                      {n.label}
+                    </a>
+                  ))
+                }
+                <div class="my-1.5 border-t border-line"></div>
+                <a href="/" class="block rounded-lg px-3 py-2 text-sm text-ink-soft transition hover:bg-surface-2">↗ View site</a>
+                <a href="/cdn-cgi/access/logout" class="block rounded-lg px-3 py-2 text-sm text-ink-soft transition hover:bg-surface-2">Sign out</a>
+              </nav>
+            </details>
+            <h1 class="truncate font-display text-lg font-bold md:text-xl">{title}</h1>
+          </div>
+          {user && <span class="hidden truncate text-sm text-muted sm:block">{user.email}</span>}
         </header>
         <main class="flex-1 p-6">
           <slot />

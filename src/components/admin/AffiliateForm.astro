@@ -25,6 +25,7 @@ const currentNet = values.network ?? networks[0]?.id ?? "";
 const netData = JSON.stringify(
   Object.fromEntries(networks.map((n) => [n.id, { help: n.param_help ?? "", param: n.link_param ?? "tag" }])),
 );
+const linkRules = values.link_rules_json ?? "{}";
 ---
 
 <form method="POST" class="max-w-lg space-y-5" data-networks={netData}>
@@ -69,7 +70,7 @@ const netData = JSON.stringify(
 
   <details class="rounded-lg border border-line bg-surface-2/50 px-3 py-2">
     <summary class="cursor-pointer text-sm font-medium text-ink-soft">Advanced: link rules (JSON)</summary>
-    <textarea name="link_rules_json" rows="3" class={`${input} font-mono text-sm`}>{values.link_rules_json ?? "{}"}</textarea>
+    <textarea name="link_rules_json" rows="3" class={`${input} font-mono text-sm`}>{linkRules}</textarea>
     <span class="mt-1 block text-xs text-muted">Overrides the network default: custom <code>param</code>, <code>extraParams</code>, or <code>kbid</code>.</span>
   </details>
 
