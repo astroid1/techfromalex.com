@@ -1,0 +1,205 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { getDB, getEnv } from "@/lib/db";
+import { runAmazonScrape, mapApifyItem, createImportedProduct, type ImportItem } from "@/lib/apify";
+import { formatPrice } from "@/lib/format";
+
+export const prerender = false;
+const db = getDB(Astro.locals);
+const env = getEnv(Astro.locals);
+
+const amazonProfiles =
+  (
+    await db
+      .prepare("SELECT id, name FROM affiliate_profiles WHERE network='amazon' AND is_active=1 ORDER BY name")
+      .all<{ id: string; name: string }>()
+  ).results ?? [];
+
+let error: string | null = null;
+let step: "form" | "select" = "form";
+let items: ImportItem[] = [];
+let selProfileId = amazonProfiles[0]?.id ?? "";
+let selCountry = "US";
+let selQuery = "";
+let selMax = 10;
+
+function toUrls(query: string): string[] {
+  return query
+    .split(/[\n,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => (/^[A-Z0-9]{10}$/i.test(s) ? `https://www.amazon.com/dp/${s.toUpperCase()}` : s));
+}
+
+if (Astro.request.method === "POST") {
+  const f = await Astro.request.formData();
+  const action = String(f.get("__action") ?? "");
+  selProfileId = String(f.get("profileId") ?? amazonProfiles[0]?.id ?? "");
+  selCountry = String(f.get("country") ?? "US");
+
+  if (action === "fetch") {
+    selQuery = String(f.get("query") ?? "").trim();
+    selMax = Math.max(1, Math.min(25, parseInt(String(f.get("maxResults") ?? "10"), 10) || 10));
+    const urls = toUrls(selQuery);
+    if (!urls.length) error = "Enter an Amazon product URL, ASIN, or search/category URL.";
+    else {
+      try {
+        const raw = await runAmazonScrape(env, { urls, maxResults: selMax, country: selCountry });
+        items = raw.map(mapApifyItem).filter((it) => it.name);
+        if (!items.length) error = "No products found for that input — check the URL/ASIN and try again.";
+        else step = "select";
+      } catch (e) {
+        error = (e as Error).message;
+      }
+    }
+  } else if (action === "import") {
+    let parsed: ImportItem[] = [];
+    try {
+      parsed = JSON.parse(String(f.get("items") ?? "[]"));
+    } catch {
+      parsed = [];
+    }
+    const picks = f
+      .getAll("pick")
+      .map((v) => parseInt(String(v), 10))
+      .filter((n) => !Number.isNaN(n));
+    const chosen = picks.map((i) => parsed[i]).filter(Boolean);
+    if (!chosen.length) {
+      error = "Select at least one product to import.";
+      items = parsed;
+      step = "select";
+    } else {
+      try {
+        const ids: string[] = [];
+        for (const it of chosen) ids.push(await createImportedProduct(env, db, it, selProfileId || null));
+        if (ids.length === 1) return Astro.redirect(`/admin/products/${ids[0]}?imported=1`);
+        return Astro.redirect(`/admin/products?imported=${ids.length}`);
+      } catch (e) {
+        error = (e as Error).message;
+        items = parsed;
+        step = "select";
+      }
+    }
+  }
+}
+
+const input =
+  "mt-1 w-full rounded-lg border border-line-strong bg-paper px-3 py-2 text-ink outline-none transition focus-visible:border-accent";
+const countries = ["US", "GB", "CA", "DE", "FR", "IT", "ES", "AU", "IN", "JP"];
+---
+
+<AdminLayout title="Import from Amazon">
+  {error && <p class="mb-4 rounded-lg px-4 py-2 text-sm" style="color:var(--danger);background:color-mix(in srgb,var(--danger) 12%,transparent)">{error}</p>}
+
+  {
+    amazonProfiles.length === 0 && (
+      <p class="mb-4 rounded-lg px-4 py-2 text-sm" style="color:var(--accent-strong);background:color-mix(in srgb,var(--accent) 12%,transparent)">
+        No active Amazon affiliate profile — imported products won't get a buy link until you add one under
+        <a href="/admin/affiliates/new" class="font-semibold"> Affiliate profiles</a>.
+      </p>
+    )
+  }
+
+  {
+    step === "form" && (
+      <form method="POST" id="imp-form" class="max-w-2xl space-y-5">
+        <input type="hidden" name="__action" value="fetch" />
+        <label class="block">
+          <span class="text-sm font-medium">Amazon product URL, ASIN, or search/category URL</span>
+          <textarea name="query" rows="3" class={`${input} font-mono text-sm`} placeholder="https://www.amazon.com/dp/B0XXXXXXXX&#10;B0XXXXXXXX&#10;https://www.amazon.com/s?k=mechanical+keyboard">{selQuery}</textarea>
+          <span class="mt-1 block text-xs text-muted">One per line for multiple. A search/category URL imports up to “max results” products.</span>
+        </label>
+        <div class="grid gap-5 sm:grid-cols-3">
+          <label class="block">
+            <span class="text-sm font-medium">Amazon profile</span>
+            <select name="profileId" class={input} disabled={amazonProfiles.length === 0}>
+              {amazonProfiles.map((p) => (
+                <option value={p.id} selected={selProfileId === p.id}>{p.name}</option>
+              ))}
+            </select>
+          </label>
+          <label class="block">
+            <span class="text-sm font-medium">Country</span>
+            <select name="country" class={input}>
+              {countries.map((c) => (
+                <option value={c} selected={selCountry === c}>{c}</option>
+              ))}
+            </select>
+          </label>
+          <label class="block">
+            <span class="text-sm font-medium">Max results (bulk)</span>
+            <input name="maxResults" type="number" min="1" max="25" value={selMax} class={input} />
+          </label>
+        </div>
+        <div class="flex gap-3">
+          <button class="btn-accent rounded-xl px-5 py-2.5 font-semibold">Fetch from Amazon</button>
+          <a href="/admin/products" class="rounded-xl border border-line-strong px-5 py-2.5 font-semibold transition hover:bg-surface-2">Cancel</a>
+        </div>
+        <p class="text-xs text-muted">Powered by Apify (billed per result on your Apify account).</p>
+      </form>
+    )
+  }
+
+  {
+    step === "select" && (
+      <form method="POST" id="imp-select" class="space-y-5">
+        <input type="hidden" name="__action" value="import" />
+        <input type="hidden" name="profileId" value={selProfileId} />
+        <input type="hidden" name="items" value={JSON.stringify(items)} />
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <p class="text-sm text-muted">
+            {items.length} product{items.length === 1 ? "" : "s"} found — pick which to import
+            {selProfileId ? "" : " (no Amazon profile selected, so no buy link will be attached)"}.
+          </p>
+          <div class="flex gap-2">
+            <a href="/admin/products/import" class="rounded-lg border border-line-strong px-3 py-2 text-sm font-semibold transition hover:bg-surface-2">Start over</a>
+            <button class="btn-accent rounded-lg px-4 py-2 text-sm font-semibold">Import selected</button>
+          </div>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {
+            items.map((it, i) => (
+              <label class="flex cursor-pointer gap-3 rounded-xl border border-line bg-surface p-3 transition hover:border-line-strong">
+                <input type="checkbox" name="pick" value={i} checked class="mt-1 shrink-0" />
+                <span class="min-w-0 flex-1">
+                  {it.imageUrl && (
+                    <img src={it.imageUrl} alt="" loading="lazy" class="mb-2 h-28 w-full rounded-lg bg-surface-2 object-contain" />
+                  )}
+                  <span class="line-clamp-3 block text-sm font-semibold text-ink">{it.name}</span>
+                  <span class="mt-1 block text-xs text-muted">
+                    {formatPrice(it.priceCents, it.currency) ?? "—"}
+                    {it.asin ? ` · ${it.asin}` : ""}
+                  </span>
+                </span>
+              </label>
+            ))
+          }
+        </div>
+      </form>
+    )
+  }
+
+  <div data-overlay hidden class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div class="rounded-2xl border border-line bg-surface px-6 py-5 text-center">
+      <p class="font-display text-lg font-bold text-ink" data-overlay-title>Fetching from Amazon…</p>
+      <p class="mt-1 text-sm text-muted">This can take 10–60s. Please wait.</p>
+    </div>
+  </div>
+
+  <script is:inline>
+    (function () {
+      var overlay = document.querySelector("[data-overlay]");
+      var title = document.querySelector("[data-overlay-title]");
+      function show(t) {
+        if (!overlay) return;
+        if (title && t) title.textContent = t;
+        overlay.hidden = false;
+        overlay.style.display = "flex";
+      }
+      var f1 = document.getElementById("imp-form");
+      if (f1) f1.addEventListener("submit", function () { show("Fetching from Amazon…"); });
+      var f2 = document.getElementById("imp-select");
+      if (f2) f2.addEventListener("submit", function () { show("Importing & saving…"); });
+    })();
+  </script>
+</AdminLayout>

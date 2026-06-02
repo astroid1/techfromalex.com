@@ -47,5 +47,5 @@ if (Astro.request.method === "POST") {
 
 <AdminLayout title="New product">
   <ProductForm values={values} error={error} submitLabel="Create product" />
-  <p class="mt-4 max-w-2xl text-sm text-muted">After creating, you'll add affiliate buy links (per network) on the product's edit page.</p>
+  <p class="mt-4 max-w-2xl text-sm text-muted">After creating, you'll add affiliate buy links (per network) on the product's edit page. Or <a href="/admin/products/import" class="font-semibold text-accent-strong">import from Amazon →</a></p>
 </AdminLayout>

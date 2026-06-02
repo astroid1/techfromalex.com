@@ -1,18 +1,21 @@
 ---
 import AdminLayout from "@/layouts/AdminLayout.astro";
 import ProductForm from "@/components/admin/ProductForm.astro";
-import { getDB } from "@/lib/db";
+import { getDB, getEnv } from "@/lib/db";
 import { nowIso, ulid } from "@/lib/ids";
 import { parseProductForm } from "@/lib/admin";
+import { runAmazonScrape, mapApifyItem } from "@/lib/apify";
 
 export const prerender = false;
 const { id } = Astro.params;
 const db = getDB(Astro.locals);
+const env = getEnv(Astro.locals);
 let error: string | null = null;
 let notice: string | null = null;
 
 let p = await db.prepare("SELECT * FROM products WHERE id = ?").bind(id).first<any>();
 if (!p) return Astro.redirect("/admin/products");
+if (Astro.url.searchParams.get("imported")) notice = "Imported from Amazon — review the details below, then Save.";
 
 if (Astro.request.method === "POST") {
   const f = await Astro.request.formData();
@@ -51,6 +54,35 @@ if (Astro.request.method === "POST") {
       .bind(String(f.get("linkId") ?? ""), id)
       .run();
     notice = "Link removed.";
+  } else if (action === "refetch") {
+    const link = await db
+      .prepare(
+        `SELECT pl.base_url FROM product_links pl JOIN affiliate_profiles ap ON ap.id = pl.affiliate_profile_id
+         WHERE pl.product_id = ? AND ap.network = 'amazon' ORDER BY pl.is_primary DESC LIMIT 1`,
+      )
+      .bind(id)
+      .first<{ base_url: string }>();
+    if (!link?.base_url) error = "No Amazon link to refresh from — add an Amazon buy link first.";
+    else {
+      try {
+        const raw = await runAmazonScrape(env, { urls: [link.base_url], maxResults: 1 });
+        const item = raw.map(mapApifyItem).filter((x) => x.name)[0];
+        if (!item) error = "Couldn't fetch fresh data from Amazon.";
+        else {
+          const now = nowIso();
+          await db
+            .prepare(
+              `UPDATE products SET price_cents=COALESCE(?,price_cents), currency=?, price_source='apify',
+                 price_observed_at=?, rating=COALESCE(?,rating), updated_at=? WHERE id=?`,
+            )
+            .bind(item.priceCents, item.currency, now, item.rating, now, id)
+            .run();
+          notice = "Refreshed price & rating from Amazon.";
+        }
+      } catch (e) {
+        error = (e as Error).message;
+      }
+    }
   } else {
     const pf = parseProductForm(f);
     if (!pf.name) error = "Name is required.";
@@ -106,8 +138,20 @@ const input =
   <ProductForm values={values} submitLabel="Save product" />
 
   <section class="mt-8 max-w-2xl rounded-xl border border-line bg-surface p-5">
-    <h2 class="font-display text-lg font-bold">Affiliate buy links</h2>
-    <p class="mt-1 text-sm text-muted">Each link maps a retailer URL to an affiliate profile. The primary link powers the Buy button.</p>
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <h2 class="font-display text-lg font-bold">Affiliate buy links</h2>
+        <p class="mt-1 text-sm text-muted">Each link maps a retailer URL to an affiliate profile. The primary link powers the Buy button.</p>
+      </div>
+      {
+        links.some((l: any) => l.network === "amazon") && (
+          <form method="POST" data-refetch class="shrink-0">
+            <input type="hidden" name="__action" value="refetch" />
+            <button class="rounded-lg border border-line-strong px-3 py-2 text-sm font-semibold text-accent-strong transition hover:bg-surface-2">↻ Refresh from Amazon</button>
+          </form>
+        )
+      }
+    </div>
 
     {
       links.length > 0 && (
@@ -149,4 +193,18 @@ const input =
     <input type="hidden" name="__action" value="delete" />
     <button class="text-sm font-semibold" style="color:var(--danger)" onclick="return confirm('Delete this product permanently?')">Delete product</button>
   </form>
+
+  <div data-rf-overlay hidden class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div class="rounded-2xl border border-line bg-surface px-6 py-5 text-center">
+      <p class="font-display text-lg font-bold text-ink">↻ Refreshing from Amazon…</p>
+      <p class="mt-1 text-sm text-muted">Fetching the latest price &amp; rating. ~10–30s.</p>
+    </div>
+  </div>
+  <script is:inline>
+    (function () {
+      var form = document.querySelector("form[data-refetch]");
+      var ov = document.querySelector("[data-rf-overlay]");
+      if (form && ov) form.addEventListener("submit", function () { ov.hidden = false; ov.style.display = "flex"; });
+    })();
+  </script>
 </AdminLayout>

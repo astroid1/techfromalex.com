@@ -5,6 +5,7 @@ import { formatPrice } from "@/lib/format";
 
 export const prerender = false;
 const db = getDB(Astro.locals);
+const imported = Astro.url.searchParams.get("imported");
 const rows =
   (await db
     .prepare(
@@ -16,9 +17,19 @@ const rows =
 ---
 
 <AdminLayout title="Products">
+  {
+    imported && (
+      <p class="mb-4 rounded-lg px-4 py-2 text-sm" style="color:var(--success);background:color-mix(in srgb,var(--success) 12%,transparent)">
+        Imported {imported} product{imported === "1" ? "" : "s"} from Amazon.
+      </p>
+    )
+  }
   <div class="flex items-center justify-between gap-4">
     <p class="max-w-xl text-sm text-muted">Products power affiliate cards and comparisons. Add buy links per product on its edit page.</p>
-    <a href="/admin/products/new" class="shrink-0 rounded-xl bg-accent px-4 py-2.5 font-semibold text-accent-contrast transition hover:brightness-105">+ New product</a>
+    <div class="flex shrink-0 gap-2">
+      <a href="/admin/products/import" class="rounded-xl border border-line-strong px-4 py-2.5 font-semibold transition hover:bg-surface-2">Import from Amazon</a>
+      <a href="/admin/products/new" class="rounded-xl bg-accent px-4 py-2.5 font-semibold text-accent-contrast transition hover:brightness-105">+ New product</a>
+    </div>
   </div>
 
   <div class="mt-6 overflow-hidden rounded-xl border border-line bg-surface">
