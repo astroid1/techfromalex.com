@@ -5,6 +5,7 @@ import { getDB, getEnv } from "@/lib/db";
 import { nowIso, ulid } from "@/lib/ids";
 import { parseProductForm } from "@/lib/admin";
 import { runAmazonScrape, mapApifyItem } from "@/lib/apify";
+import { shortenTitle } from "@/lib/ai/title";
 
 export const prerender = false;
 const { id } = Astro.params;
@@ -83,6 +84,14 @@ if (Astro.request.method === "POST") {
         error = (e as Error).message;
       }
     }
+  } else if (action === "shorten_title") {
+    try {
+      const newName = await shortenTitle(env, p.name);
+      await db.prepare("UPDATE products SET name=?, updated_at=? WHERE id=?").bind(newName, nowIso(), id).run();
+      notice = "Title shortened with AI.";
+    } catch (e) {
+      error = (e as Error).message;
+    }
   } else {
     const pf = parseProductForm(f);
     if (!pf.name) error = "Name is required.";
@@ -137,6 +146,11 @@ const input =
   {error && <p class="mb-4 rounded-lg px-4 py-2 text-sm" style="color:var(--danger);background:color-mix(in srgb,var(--danger) 12%,transparent)">{error}</p>}
 
   <ProductForm values={values} submitLabel="Save product" showSaveClose />
+  <form method="POST" data-busy="✨ Shortening the title…" class="mt-3 max-w-2xl">
+    <input type="hidden" name="__action" value="shorten_title" />
+    <button class="text-sm font-semibold text-accent-strong transition hover:brightness-110">✨ Shorten title with AI</button>
+    <span class="ml-2 text-xs text-muted">Cleans the saved title into a concise version.</span>
+  </form>
 
   <section class="mt-8 max-w-2xl rounded-xl border border-line bg-surface p-5">
     <div class="flex items-start justify-between gap-3">
@@ -146,7 +160,7 @@ const input =
       </div>
       {
         links.some((l: any) => l.network === "amazon") && (
-          <form method="POST" data-refetch class="shrink-0">
+          <form method="POST" data-busy="↻ Refreshing from Amazon…" class="shrink-0">
             <input type="hidden" name="__action" value="refetch" />
             <button class="rounded-lg border border-line-strong px-3 py-2 text-sm font-semibold text-accent-strong transition hover:bg-surface-2">↻ Refresh from Amazon</button>
           </form>
@@ -195,17 +209,25 @@ const input =
     <button class="text-sm font-semibold" style="color:var(--danger)" onclick="return confirm('Delete this product permanently?')">Delete product</button>
   </form>
 
-  <div data-rf-overlay hidden class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm">
+  <div data-busy-overlay hidden class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm">
     <div class="rounded-2xl border border-line bg-surface px-6 py-5 text-center">
-      <p class="font-display text-lg font-bold text-ink">↻ Refreshing from Amazon…</p>
-      <p class="mt-1 text-sm text-muted">Fetching the latest price &amp; rating. ~10–30s.</p>
+      <p class="font-display text-lg font-bold text-ink" data-busy-title>Working…</p>
+      <p class="mt-1 text-sm text-muted">This can take a few seconds.</p>
     </div>
   </div>
   <script is:inline>
     (function () {
-      var form = document.querySelector("form[data-refetch]");
-      var ov = document.querySelector("[data-rf-overlay]");
-      if (form && ov) form.addEventListener("submit", function () { ov.hidden = false; ov.style.display = "flex"; });
+      var ov = document.querySelector("[data-busy-overlay]");
+      var title = document.querySelector("[data-busy-title]");
+      document.querySelectorAll("form[data-busy]").forEach(function (f) {
+        f.addEventListener("submit", function () {
+          if (title) title.textContent = f.getAttribute("data-busy") || "Working…";
+          if (ov) {
+            ov.hidden = false;
+            ov.style.display = "flex";
+          }
+        });
+      });
     })();
   </script>
 </AdminLayout>

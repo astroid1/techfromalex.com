@@ -8,9 +8,19 @@ import { generateDraft } from "@/lib/ai/generate";
 
 export const prerender = false;
 const db = getDB(Astro.locals);
-const products = (await db.prepare("SELECT id,name,brand FROM products ORDER BY name").all<any>()).results ?? [];
-const profiles =
-  (await db.prepare("SELECT id,name FROM affiliate_profiles WHERE is_active=1 ORDER BY name").all<any>()).results ?? [];
+
+// Products with their primary active affiliate profile (so the form can derive + show it).
+const products =
+  (
+    await db
+      .prepare(
+        `SELECT p.id, p.name, p.brand,
+                (SELECT ap.name FROM product_links pl JOIN affiliate_profiles ap ON ap.id = pl.affiliate_profile_id
+                 WHERE pl.product_id = p.id AND ap.is_active = 1 ORDER BY pl.is_primary DESC LIMIT 1) AS profile_name
+         FROM products p ORDER BY p.name`,
+      )
+      .all<{ id: string; name: string; brand: string | null; profile_name: string | null }>()
+  ).results ?? [];
 const cats = (await db.prepare("SELECT slug,name FROM categories ORDER BY position").all<any>()).results ?? [];
 
 const types = [
@@ -19,6 +29,13 @@ const types = [
   { value: "roundup", label: "'Best X' Roundup / Guide" },
   { value: "news_deal", label: "News & Deal post" },
 ];
+// Default category per content type (still changeable in the form).
+const typeCategory: Record<string, string> = {
+  review: "reviews",
+  comparison: "comparisons",
+  roundup: "guides",
+  news_deal: "deals",
+};
 
 let error: string | null = null;
 if (Astro.request.method === "POST") {
@@ -28,12 +45,33 @@ if (Astro.request.method === "POST") {
   const category = String(f.get("category") ?? "") || null;
   const keyword = String(f.get("primaryKeyword") ?? "").trim();
   const brief = String(f.get("brief") ?? "").trim();
-  const dek = String(f.get("dek") ?? "").trim() || null;
-  const productIds = f.getAll("productIds").map(String);
-  const profileId = String(f.get("affiliate_profile_id") ?? "") || null;
+  const productIds = f.getAll("productIds").map(String).filter(Boolean);
 
   if (!title) error = "A title or topic is required.";
   else {
+    // Derive each product's primary affiliate profile + the union of profiles used.
+    const profByProduct = new Map<string, string>();
+    const profileSet = new Set<string>();
+    if (productIds.length) {
+      const ph = productIds.map(() => "?").join(",");
+      const links =
+        (
+          await db
+            .prepare(
+              `SELECT pl.product_id, pl.affiliate_profile_id FROM product_links pl
+               JOIN affiliate_profiles ap ON ap.id = pl.affiliate_profile_id
+               WHERE pl.product_id IN (${ph}) AND ap.is_active = 1
+               ORDER BY pl.is_primary DESC`,
+            )
+            .bind(...productIds)
+            .all<{ product_id: string; affiliate_profile_id: string }>()
+        ).results ?? [];
+      for (const r of links) {
+        if (!profByProduct.has(r.product_id)) profByProduct.set(r.product_id, r.affiliate_profile_id);
+        profileSet.add(r.affiliate_profile_id);
+      }
+    }
+
     const id = ulid();
     const slug = await uniqueSlug(db, slugify(title));
     const now = nowIso();
@@ -44,29 +82,27 @@ if (Astro.request.method === "POST") {
           `INSERT INTO content (id,type,status,slug,title,dek,category,author_id,body_md,structured_json,seo_title,seo_description,created_at,updated_at)
            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         )
-        .bind(id, type, "draft", slug, title, dek, category, "alex", "", structured, title, dek, now, now)
+        .bind(id, type, "draft", slug, title, null, category, "alex", "", structured, null, null, now, now)
         .run();
       for (let i = 0; i < productIds.length; i++) {
         await db
           .prepare(
             `INSERT OR IGNORE INTO content_products (content_id,product_id,role,position,affiliate_profile_id) VALUES (?,?,?,?,?)`,
           )
-          .bind(id, productIds[i], i === 0 ? "primary" : "featured", i, profileId)
+          .bind(id, productIds[i], i === 0 ? "primary" : "featured", i, profByProduct.get(productIds[i]) ?? null)
           .run();
       }
-      if (profileId) {
+      for (const pid of profileSet) {
         await db
           .prepare(`INSERT OR IGNORE INTO content_affiliate_profiles (content_id,affiliate_profile_id) VALUES (?,?)`)
-          .bind(id, profileId)
+          .bind(id, pid)
           .run();
       }
       if (String(f.get("__action") ?? "create") === "generate") {
         try {
           await generateDraft(getEnv(Astro.locals), db, id);
         } catch (e) {
-          return Astro.redirect(
-            `/admin/content/${id}?gen_error=${encodeURIComponent((e as Error).message)}`,
-          );
+          return Astro.redirect(`/admin/content/${id}?gen_error=${encodeURIComponent((e as Error).message)}`);
         }
       }
       return Astro.redirect(`/admin/content/${id}`);
@@ -81,7 +117,7 @@ const input =
 ---
 
 <AdminLayout title="New content">
-  <form method="POST" class="max-w-2xl space-y-5">
+  <form method="POST" id="content-form" class="max-w-2xl space-y-5">
     {
       error && (
         <p class="rounded-lg px-4 py-2 text-sm" style="color:var(--danger); background:color-mix(in srgb,var(--danger) 12%,transparent)">
@@ -92,60 +128,72 @@ const input =
     <div class="grid gap-5 sm:grid-cols-2">
       <label class="block">
         <span class="text-sm font-medium">Content type</span>
-        <select name="type" class={input}>
-          {types.map((t) => <option value={t.value}>{t.label}</option>)}
+        <select name="type" data-type class={input}>
+          {types.map((t) => <option value={t.value} data-cat={typeCategory[t.value] ?? ""}>{t.label}</option>)}
         </select>
       </label>
       <label class="block">
-        <span class="text-sm font-medium">Category</span>
-        <select name="category" class={input}>
+        <span class="text-sm font-medium">Category <span class="font-normal text-muted">(auto from type)</span></span>
+        <select name="category" data-category class={input}>
           <option value="">— none —</option>
           {cats.map((c: any) => <option value={c.slug}>{c.name}</option>)}
         </select>
       </label>
     </div>
+
     <label class="block">
       <span class="text-sm font-medium">Title / topic</span>
       <input name="title" required class={input} placeholder="e.g. Sony WH-1000XM6 Review" />
     </label>
     <label class="block">
-      <span class="text-sm font-medium">Primary keyword (SEO)</span>
+      <span class="text-sm font-medium">Primary keyword <span class="font-normal text-muted">(optional — guides SEO)</span></span>
       <input name="primaryKeyword" class={input} placeholder="sony wh-1000xm6 review" />
     </label>
     <label class="block">
-      <span class="text-sm font-medium">Brief / angle (for AI generation)</span>
+      <span class="text-sm font-medium">Brief / angle <span class="font-normal text-muted">(for AI generation)</span></span>
       <textarea name="brief" rows="3" class={input} placeholder="What should this piece argue or cover? Who is it for?"></textarea>
     </label>
-    <label class="block">
-      <span class="text-sm font-medium">Meta description</span>
-      <input name="dek" class={input} placeholder="One-sentence summary for search & social." />
-    </label>
+    <p class="rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-muted">
+      SEO title &amp; meta description are generated automatically from the content (editable later in the editor).
+    </p>
 
     <fieldset class="rounded-xl border border-line p-4">
       <legend class="px-1 text-sm font-medium">Featured products</legend>
       {
         products.length ? (
-          <div class="mt-2 grid gap-2 sm:grid-cols-2">
-            {products.map((p: any) => (
-              <label class="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="productIds" value={p.id} />
-                <span>{p.name}</span>
-              </label>
-            ))}
+          <div class="mt-1">
+            <input type="search" data-prod-search placeholder="Search products by name or brand…" autocomplete="off" class={input} />
+            <div class="mt-3 max-h-64 overflow-y-auto rounded-lg border border-line">
+              {products.map((p) => (
+                <label
+                  class="flex items-center gap-2 border-b border-line px-3 py-2 text-sm last:border-0"
+                  data-prod
+                  data-search={`${p.name} ${p.brand ?? ""}`.toLowerCase()}
+                >
+                  <input type="checkbox" name="productIds" value={p.id} data-profile={p.profile_name ?? ""} class="shrink-0" />
+                  <span class="min-w-0 flex-1 truncate">
+                    {p.name}
+                    {p.brand ? <span class="text-muted"> · {p.brand}</span> : null}
+                  </span>
+                  {p.profile_name ? (
+                    <span class="shrink-0 text-xs text-muted">{p.profile_name}</span>
+                  ) : (
+                    <span class="shrink-0 text-xs" style="color:var(--danger)">no link</span>
+                  )}
+                </label>
+              ))}
+            </div>
+            <p class="mt-2 text-xs text-muted">
+              <span data-prod-count>0</span> selected · Affiliate: <span data-prod-profiles class="text-ink-soft">—</span>
+            </p>
           </div>
         ) : (
-          <p class="mt-2 text-sm text-muted">No products yet — add some under Products.</p>
+          <p class="mt-2 text-sm text-muted">
+            No products yet — <a href="/admin/products/import" class="text-accent-strong">import from Amazon</a> or add under Products.
+          </p>
         )
       }
     </fieldset>
-
-    <label class="block">
-      <span class="text-sm font-medium">Affiliate profile for these links</span>
-      <select name="affiliate_profile_id" class={input}>
-        <option value="">— product default —</option>
-        {profiles.map((p: any) => <option value={p.id}>{p.name}</option>)}
-      </select>
-    </label>
 
     <div class="flex items-center gap-3 pt-2">
       <button name="__action" value="generate" class="rounded-xl bg-accent px-5 py-2.5 font-semibold text-accent-contrast transition hover:brightness-105">
@@ -155,6 +203,52 @@ const input =
         Create empty draft
       </button>
     </div>
-    <p class="text-xs text-muted">AI generation runs in the editor after the draft is created.</p>
+    <p class="text-xs text-muted">Affiliate profiles are taken from the selected products' links. AI generation runs in the editor after the draft is created.</p>
   </form>
+
+  <script is:inline>
+    (function () {
+      var typeSel = document.querySelector("[data-type]");
+      var catSel = document.querySelector("[data-category]");
+      function syncCat() {
+        if (!typeSel || !catSel) return;
+        var opt = typeSel.options[typeSel.selectedIndex];
+        var want = opt && opt.getAttribute("data-cat");
+        if (want) {
+          for (var i = 0; i < catSel.options.length; i++) {
+            if (catSel.options[i].value === want) { catSel.selectedIndex = i; break; }
+          }
+        }
+      }
+      if (typeSel) typeSel.addEventListener("change", syncCat);
+      syncCat();
+
+      var search = document.querySelector("[data-prod-search]");
+      if (search)
+        search.addEventListener("input", function () {
+          var q = search.value.toLowerCase().trim();
+          document.querySelectorAll("[data-prod]").forEach(function (row) {
+            row.style.display = !q || row.getAttribute("data-search").indexOf(q) !== -1 ? "" : "none";
+          });
+        });
+
+      var count = document.querySelector("[data-prod-count]");
+      var profEl = document.querySelector("[data-prod-profiles]");
+      function syncSel() {
+        var checked = document.querySelectorAll('input[name="productIds"]:checked');
+        if (count) count.textContent = String(checked.length);
+        var profs = {};
+        checked.forEach(function (c) {
+          var p = c.getAttribute("data-profile");
+          if (p) profs[p] = 1;
+        });
+        var names = Object.keys(profs);
+        if (profEl) profEl.textContent = names.length ? names.join(", ") : "—";
+      }
+      document.querySelectorAll('input[name="productIds"]').forEach(function (c) {
+        c.addEventListener("change", syncSel);
+      });
+      syncSel();
+    })();
+  </script>
 </AdminLayout>

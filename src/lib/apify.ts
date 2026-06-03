@@ -110,9 +110,29 @@ function parseCategory(raw: any): string | null {
   return raw?.category ? String(raw.category).trim() || null : null;
 }
 
+/** Condense a long, keyword-stuffed Amazon title into a clean site title (brand + model + key descriptor). */
+export function condenseTitle(full: string): string {
+  let t = (full || "").replace(/\s+/g, " ").trim();
+  if (!t) return t;
+  // Cut at the first strong separator: an en/em dash, pipe, comma, or opening bracket.
+  const sep = t.match(/\s[–—|]\s|[,(\[]/);
+  if (sep && sep.index != null && sep.index > 0) t = t.slice(0, sep.index);
+  // Drop a trailing marketing clause introduced by "for" / "with" / "w/" (if enough title precedes it).
+  const clause = t.match(/\s(?:for|with|w\/)\s/i);
+  if (clause && clause.index != null && clause.index >= 12) t = t.slice(0, clause.index);
+  t = t.trim().replace(/[\s,\-–—|]+$/, "");
+  // Cap at a word boundary near 64 chars.
+  if (t.length > 64) {
+    const cut = t.slice(0, 64);
+    const lastSpace = cut.lastIndexOf(" ");
+    t = (lastSpace > 24 ? cut.slice(0, lastSpace) : cut).trim();
+  }
+  return t || full.slice(0, 64).trim();
+}
+
 /** Map a raw Apify dataset item to our compact ImportItem (defensive — field names vary by actor). */
 export function mapApifyItem(raw: any): ImportItem {
-  const name = String(raw?.title ?? raw?.name ?? "").trim();
+  const name = condenseTitle(String(raw?.title ?? raw?.name ?? ""));
   const priceValue =
     num(raw?.price?.value) ?? num(raw?.price) ?? num(raw?.priceValue) ?? num(raw?.price?.amount);
   const features: string[] = Array.isArray(raw?.features)
