@@ -97,6 +97,7 @@ if (Astro.request.method === "POST") {
             JSON.stringify(pf.pros), JSON.stringify(pf.cons), JSON.stringify(pf.specs), nowIso(), id,
           )
           .run();
+        if (action === "save_close") return Astro.redirect("/admin/products");
         notice = "Saved.";
       } catch (e) {
         error = (e as Error).message;
@@ -135,7 +136,7 @@ const input =
   {notice && <p class="mb-4 rounded-lg px-4 py-2 text-sm" style="color:var(--success);background:color-mix(in srgb,var(--success) 12%,transparent)">{notice}</p>}
   {error && <p class="mb-4 rounded-lg px-4 py-2 text-sm" style="color:var(--danger);background:color-mix(in srgb,var(--danger) 12%,transparent)">{error}</p>}
 
-  <ProductForm values={values} submitLabel="Save product" />
+  <ProductForm values={values} submitLabel="Save product" showSaveClose />
 
   <section class="mt-8 max-w-2xl rounded-xl border border-line bg-surface p-5">
     <div class="flex items-start justify-between gap-3">

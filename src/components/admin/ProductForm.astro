@@ -14,8 +14,9 @@ interface Props {
   };
   error?: string | null;
   submitLabel?: string;
+  showSaveClose?: boolean;
 }
-const { values = {}, error = null, submitLabel = "Save product" } = Astro.props;
+const { values = {}, error = null, submitLabel = "Save product", showSaveClose = false } = Astro.props;
 const input =
   "mt-1 w-full rounded-lg border border-line-strong bg-paper px-3 py-2 text-ink outline-none transition focus-visible:border-accent";
 ---
@@ -75,7 +76,8 @@ const input =
     <textarea name="specs" rows="6" class={`${input} font-mono text-sm`}>{values.specsText ?? ""}</textarea>
   </label>
   <div class="flex items-center gap-3 pt-1">
-    <button class="rounded-xl bg-accent px-5 py-2.5 font-semibold text-accent-contrast transition hover:brightness-105">{submitLabel}</button>
+    <button name="__action" value="save" class="rounded-xl bg-accent px-5 py-2.5 font-semibold text-accent-contrast transition hover:brightness-105">{submitLabel}</button>
+    {showSaveClose && <button name="__action" value="save_close" class="rounded-xl border border-line-strong px-5 py-2.5 font-semibold transition hover:bg-surface-2">Save &amp; close</button>}
     <a href="/admin/products" class="rounded-xl border border-line-strong px-5 py-2.5 font-semibold transition hover:bg-surface-2">Cancel</a>
   </div>
 </form>
