@@ -1,11 +1,36 @@
 ---
 import AdminLayout from "@/layouts/AdminLayout.astro";
-import { getDB } from "@/lib/db";
+import { getDB, getEnv } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 
 export const prerender = false;
 const db = getDB(Astro.locals);
-const error = Astro.url.searchParams.get("error");
+let error = Astro.url.searchParams.get("error");
+let notice: string | null = null;
+
+// Delete a media item: drop the R2 object + the row. The library re-renders below
+// without it. (A re-POST on refresh is harmless — the delete is idempotent.)
+if (Astro.request.method === "POST") {
+  const f = await Astro.request.formData();
+  if (String(f.get("__action") ?? "") === "delete") {
+    const mid = String(f.get("id") ?? "");
+    try {
+      const row = await db.prepare("SELECT r2_key FROM media WHERE id = ?").bind(mid).first<{ r2_key: string }>();
+      if (row?.r2_key) {
+        try {
+          await getEnv(Astro.locals).MEDIA.delete(row.r2_key);
+        } catch {
+          /* R2 object already gone — still drop the row */
+        }
+      }
+      await db.prepare("DELETE FROM media WHERE id = ?").bind(mid).run();
+      notice = "Image deleted.";
+    } catch (e) {
+      error = (e as Error).message;
+    }
+  }
+}
+
 const rows =
   (await db
     .prepare("SELECT id, url_path, alt, mime, bytes, created_at FROM media ORDER BY created_at DESC LIMIT 200")
@@ -53,6 +78,7 @@ const kb = (n: number) => `${Math.round(n / 1024)} KB`;
 
 <AdminLayout title="Media">
   {error && <p class="mb-4 rounded-lg px-4 py-2 text-sm" style="color:var(--danger);background:color-mix(in srgb,var(--danger) 12%,transparent)">{error}</p>}
+  {notice && <p class="mb-4 rounded-lg px-4 py-2 text-sm" style="color:var(--success);background:color-mix(in srgb,var(--success) 12%,transparent)">{notice}</p>}
 
   <div class="rounded-xl border border-line bg-surface p-5">
     <h2 class="font-display text-lg font-bold">Upload an image</h2>
@@ -76,6 +102,9 @@ const kb = (n: number) => `${Math.round(n / 1024)} KB`;
       <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {rows.map((m) => {
           const used = usage.get(m.url_path) ?? [];
+          const confirmMsg = used.length
+            ? `This image is used in ${used.length} place(s). Deleting it will break those references. Delete anyway?`
+            : "Delete this image permanently? This cannot be undone.";
           return (
             <div class="flex flex-col overflow-hidden rounded-xl border border-line bg-surface">
               <a href={m.url_path} target="_blank" rel="noopener" class="block aspect-video bg-surface-2" title="Open image in a new tab">
@@ -112,6 +141,11 @@ const kb = (n: number) => `${Math.round(n / 1024)} KB`;
                     <p class="text-[11px] text-muted">Not used yet</p>
                   )}
                 </div>
+                <form method="POST" onsubmit={`return confirm(${JSON.stringify(confirmMsg)})`} class="mt-3 flex justify-end">
+                  <input type="hidden" name="__action" value="delete" />
+                  <input type="hidden" name="id" value={m.id} />
+                  <button class="text-xs font-semibold transition hover:underline" style="color:var(--danger)">Delete</button>
+                </form>
               </div>
             </div>
           );
