@@ -9,10 +9,11 @@ export function cdnImage(
 ): string | null {
   if (!src) return null;
   if (src.startsWith("/cdn-cgi/")) return src;
-  const { width = 1200, quality = 75 } = opts;
-  const spec = `width=${width},quality=${quality},format=auto`;
-  const target = /^https?:\/\//.test(src) ? src : `/${src.replace(/^\//, "")}`;
-  return `/cdn-cgi/image/${spec}/${target}`;
+  // Cloudflare Image Resizing (/cdn-cgi/image) is NOT enabled on this zone — it 404s —
+  // so serve the original image directly (R2 path or external URL). If Image Resizing
+  // is later enabled in the dashboard, restore the transform using `opts` here.
+  void opts;
+  return /^https?:\/\//.test(src) ? src : `/${src.replace(/^\//, "")}`;
 }
 
 export function retailerName(network: string | null | undefined): string {
