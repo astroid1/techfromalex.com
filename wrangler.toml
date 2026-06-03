@@ -38,6 +38,6 @@ SITE_URL = "https://techfromalex.com"
 CF_ACCESS_TEAM_DOMAIN = "https://astroid1.cloudflareaccess.com"
 CF_ACCESS_AUD = "98b2315edcdf35d95a422225957d218c3d8c02a49f8070c071c5a844dd4d1420"
 APIFY_AMAZON_ACTOR = "junglee~amazon-crawler"
-# Set to "on" after enabling Cloudflare Image Transformations on the zone (Images -> Transformations).
-IMAGE_TRANSFORMS = "off"
+# Cloudflare Image Transformations enabled on the zone (Images -> Transformations).
+IMAGE_TRANSFORMS = "on"
 # Secrets (ANTHROPIC_API_KEY, APIFY_TOKEN, affiliate keys) via `wrangler secret put`.
