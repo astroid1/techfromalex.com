@@ -49,6 +49,7 @@ export async function generateDraft(env: Env, db: D1Database, contentId: string)
   const inStruct = JSON.parse(c.structured_json || "{}") as Record<string, any>;
   const brief = String(inStruct.brief ?? "");
   const keyword = String(inStruct.primaryKeyword ?? "");
+  const instructions = String(inStruct.instructions ?? "");
 
   const productIds = await getContentProductIds(db, contentId);
   const productMap = await getProducts(db, productIds);
@@ -67,7 +68,7 @@ export async function generateDraft(env: Env, db: D1Database, contentId: string)
 
   const tmpl = getTemplate(c.type);
   const system = buildSystem(c.type, facts);
-  let userText = buildUserText(c.title, keyword, brief, productIds);
+  let userText = buildUserText(c.title, keyword, brief, productIds, instructions);
 
   let { data } = await generateStructured<DraftOutput>({ apiKey, system, userText, schema: tmpl.schema });
 
@@ -123,4 +124,27 @@ export async function generateDraft(env: Env, db: D1Database, contentId: string)
     "ai",
     null,
   );
+}
+
+/**
+ * Run draft generation as a background job (via ctx.waitUntil). Marks the
+ * content's `aiStatus` in structured_json as "done" on success or "error" (with
+ * the message) on failure, so the editor/list can show progress without blocking
+ * the request that kicked it off.
+ */
+export async function runGenerationJob(env: Env, db: D1Database, contentId: string): Promise<void> {
+  try {
+    await generateDraft(env, db, contentId);
+    await db
+      .prepare(`UPDATE content SET structured_json = json_set(structured_json, '$.aiStatus', 'done'), updated_at=? WHERE id=?`)
+      .bind(nowIso(), contentId)
+      .run();
+  } catch (e) {
+    await db
+      .prepare(
+        `UPDATE content SET structured_json = json_set(structured_json, '$.aiStatus', 'error', '$.aiError', ?), updated_at=? WHERE id=?`,
+      )
+      .bind(String((e as Error).message).slice(0, 300), nowIso(), contentId)
+      .run();
+  }
 }

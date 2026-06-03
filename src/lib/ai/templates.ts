@@ -185,12 +185,14 @@ export function buildUserText(
   keyword: string,
   brief: string,
   productIds: string[],
+  instructions = "",
 ): string {
   return [
     `Title / topic: ${title}`,
     keyword ? `Primary keyword: ${keyword}` : "",
     brief ? `Brief / angle: ${brief}` : "",
     productIds.length ? `Products to feature (ids): ${productIds.join(", ")}` : "No products selected.",
+    instructions ? `\nAdditional instructions (follow these closely):\n${instructions}` : "",
     "",
     "Write the piece now, filling the JSON schema exactly.",
   ]

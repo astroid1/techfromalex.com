@@ -11,13 +11,14 @@ const filter = valid.includes(status) ? status : "";
 
 const rows = filter
   ? await db
-      .prepare("SELECT id,title,type,status,category,updated_at FROM content WHERE status=? ORDER BY updated_at DESC LIMIT 200")
+      .prepare("SELECT id,title,type,status,category,updated_at, json_extract(structured_json,'$.aiStatus') AS ai_status FROM content WHERE status=? ORDER BY updated_at DESC LIMIT 200")
       .bind(filter)
       .all<any>()
   : await db
-      .prepare("SELECT id,title,type,status,category,updated_at FROM content ORDER BY updated_at DESC LIMIT 200")
+      .prepare("SELECT id,title,type,status,category,updated_at, json_extract(structured_json,'$.aiStatus') AS ai_status FROM content ORDER BY updated_at DESC LIMIT 200")
       .all<any>();
 const items = rows.results ?? [];
+const anyGenerating = items.some((i: any) => i.ai_status === "generating");
 
 const tabs = [
   { label: "All", value: "" },
@@ -72,6 +73,9 @@ const statusColor: Record<string, string> = {
               <tr class="border-t border-line">
                 <td class="p-3">
                   <a href={`/admin/content/${r.id}`} class="font-medium hover:text-accent-strong">{r.title}</a>
+                  {r.ai_status === "generating" && (
+                    <span class="ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold" style="color:var(--accent-strong);background:color-mix(in srgb,var(--accent) 14%,transparent)">🪄 drafting…</span>
+                  )}
                 </td>
                 <td class="p-3 text-muted">{r.type}</td>
                 <td class="p-3 text-muted">{r.category ?? "—"}</td>
@@ -95,4 +99,5 @@ const statusColor: Record<string, string> = {
       </tbody>
     </table>
   </div>
+  {anyGenerating && <script is:inline>setTimeout(function () { location.reload(); }, 10000);</script>}
 </AdminLayout>
