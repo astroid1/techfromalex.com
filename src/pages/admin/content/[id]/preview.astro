@@ -10,6 +10,7 @@ import ReviewIntro from "@/components/templates/ReviewIntro.astro";
 import RoundupIntro from "@/components/templates/RoundupIntro.astro";
 import ComparisonIntro from "@/components/templates/ComparisonIntro.astro";
 import NewsIntro from "@/components/templates/NewsIntro.astro";
+import HowtoIntro from "@/components/templates/HowtoIntro.astro";
 import { getDB } from "@/lib/db";
 import { getProducts } from "@/lib/content";
 import { renderBody } from "@/lib/render-body";
@@ -68,6 +69,7 @@ const hasAffiliate = products.size > 0;
       {c.type === "roundup" && <RoundupIntro content={content} products={products} />}
       {c.type === "comparison" && <ComparisonIntro content={content} products={products} />}
       {c.type === "news_deal" && <NewsIntro content={content} products={products} />}
+      {c.type === "howto" && <HowtoIntro content={content} />}
       <ProseRenderer segments={segments} products={products} programs={programs} admin />
       <Faq items={Array.isArray(structured.faq) ? structured.faq : []} />
     </div>

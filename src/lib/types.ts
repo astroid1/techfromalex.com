@@ -1,4 +1,4 @@
-export type ContentType = "review" | "comparison" | "roundup" | "news_deal";
+export type ContentType = "review" | "comparison" | "roundup" | "news_deal" | "howto";
 export type CategorySlug =
   | "reviews"
   | "guides"
@@ -77,6 +77,11 @@ export interface RoundupPick {
   award: string;
   bestFor: string;
   rationale: string;
+}
+
+export interface HowtoStep {
+  name: string;
+  detail: string;
 }
 
 export const CATEGORY_NAMES: Record<CategorySlug, string> = {

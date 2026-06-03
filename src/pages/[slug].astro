@@ -14,6 +14,7 @@ import ReviewIntro from "@/components/templates/ReviewIntro.astro";
 import RoundupIntro from "@/components/templates/RoundupIntro.astro";
 import ComparisonIntro from "@/components/templates/ComparisonIntro.astro";
 import NewsIntro from "@/components/templates/NewsIntro.astro";
+import HowtoIntro from "@/components/templates/HowtoIntro.astro";
 import { getDB } from "@/lib/db";
 import {
   getAuthor,
@@ -27,7 +28,7 @@ import { getPrograms } from "@/lib/programs";
 import { programIdsInBody } from "@/lib/admin";
 import { formatDate } from "@/lib/format";
 import { CATEGORY_NAMES } from "@/lib/types";
-import { articleLd, breadcrumbLd, itemListLd, productLd, faqLd } from "@/lib/jsonld";
+import { articleLd, breadcrumbLd, itemListLd, productLd, faqLd, howToLd } from "@/lib/jsonld";
 
 export const prerender = false;
 
@@ -87,6 +88,13 @@ if (content.type === "roundup" && Array.isArray(s.picks)) {
 const faqItems: { q: string; a: string }[] = Array.isArray(s.faq) ? s.faq : [];
 const faqJson = faqLd(faqItems);
 if (faqJson) ld.push(faqJson);
+if (content.type === "howto") {
+  const howJson = howToLd(content.title, Array.isArray(s.steps) ? s.steps : [], {
+    description: content.dek ?? content.seoDescription ?? null,
+    tools: Array.isArray(s.tools) ? s.tools : [],
+  });
+  if (howJson) ld.push(howJson);
+}
 ---
 
 <Base
@@ -151,6 +159,7 @@ if (faqJson) ld.push(faqJson);
         {content.type === "roundup" && <RoundupIntro content={content} products={products} />}
         {content.type === "comparison" && <ComparisonIntro content={content} products={products} />}
         {content.type === "news_deal" && <NewsIntro content={content} products={products} />}
+        {content.type === "howto" && <HowtoIntro content={content} />}
         <ProseRenderer segments={segments} products={products} programs={programs} />
         <Faq items={faqItems} />
       </article>

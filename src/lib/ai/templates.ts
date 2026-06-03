@@ -133,6 +133,39 @@ const TEMPLATES: Record<
       "and dealProductId to that id, and include a ::buy-button{id=\"...\"}. Do NOT state a specific price unless one is given " +
       "in the brief. Keep it tight and factual.",
   },
+  howto: {
+    label: "how-to / walkthrough guide",
+    schema: envelope({
+      type: "object",
+      additionalProperties: false,
+      required: ["steps"],
+      properties: {
+        intro: { type: "string" },
+        difficulty: { type: "string" },
+        timeRequired: { type: "string" },
+        tools: { type: "array", items: { type: "string" } },
+        steps: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["name", "detail"],
+            properties: {
+              name: { type: "string" },
+              detail: { type: "string" },
+            },
+          },
+        },
+      },
+    }),
+    instructions:
+      "Write a clear, practical step-by-step how-to / walkthrough (1,000–1,800 words). Open with a short intro on what " +
+      "the reader will accomplish and who it is for. Write each step as its own ## section with an action-oriented heading, " +
+      "explaining exactly what to do and why. Mirror every step in structured.steps (name = the step heading, detail = a " +
+      "one or two sentence summary) so the site can show a steps overview and How-To rich results. Set difficulty and " +
+      "timeRequired when you can estimate them, and list any required tools, gear, or accounts in structured.tools. If a " +
+      "specific product from the PRODUCTS list genuinely helps, reference it with the product directives (never invent one).",
+  },
 };
 
 export function getTemplate(type: ContentType) {

@@ -1,0 +1,67 @@
+---
+import type { ContentFull, HowtoStep } from "@/lib/types";
+
+interface Props {
+  content: ContentFull;
+}
+const { content } = Astro.props;
+const s = content.structured as {
+  difficulty?: string;
+  timeRequired?: string;
+  tools?: string[];
+  steps?: HowtoStep[];
+};
+const steps = Array.isArray(s.steps) ? s.steps : [];
+const tools = Array.isArray(s.tools) ? s.tools.filter(Boolean) : [];
+const hasMeta = Boolean(s.difficulty || s.timeRequired);
+---
+
+{
+  (steps.length > 0 || tools.length > 0 || hasMeta) && (
+    <div class="not-prose mb-10 rounded-2xl border border-line bg-surface p-6 shadow-[var(--shadow-sm)]">
+      {hasMeta && (
+        <div class="flex flex-wrap gap-2">
+          {s.difficulty && (
+            <span class="rounded-full bg-surface-2 px-3 py-1 text-xs font-semibold text-ink-soft">
+              Difficulty: {s.difficulty}
+            </span>
+          )}
+          {s.timeRequired && (
+            <span class="rounded-full bg-surface-2 px-3 py-1 text-xs font-semibold text-ink-soft">
+              ⏱ {s.timeRequired}
+            </span>
+          )}
+        </div>
+      )}
+
+      {tools.length > 0 && (
+        <div class={hasMeta ? "mt-4" : ""}>
+          <p class="text-xs font-semibold uppercase tracking-widest text-muted">What you'll need</p>
+          <ul class="mt-2 flex flex-wrap gap-2">
+            {tools.map((t) => (
+              <li class="rounded-lg border border-line bg-surface-2 px-3 py-1 text-sm text-ink-soft">{t}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {steps.length > 0 && (
+        <div class={hasMeta || tools.length > 0 ? "mt-4 border-t border-line pt-4" : ""}>
+          <p class="text-xs font-semibold uppercase tracking-widest text-muted">
+            {steps.length} steps
+          </p>
+          <ol class="mt-2 space-y-1.5">
+            {steps.map((st, i) => (
+              <li class="flex gap-3 text-sm">
+                <span class="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-accent text-xs font-extrabold text-accent-contrast">
+                  {i + 1}
+                </span>
+                <span class="text-ink-soft">{st.name}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </div>
+  )
+}

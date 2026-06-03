@@ -108,6 +108,29 @@ export function itemListLd(
   };
 }
 
+export function howToLd(
+  name: string,
+  steps: { name: string; detail: string }[],
+  opts: { description?: string | null; tools?: string[] } = {},
+): Ld | null {
+  if (!steps.length) return null;
+  return {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    name,
+    ...(opts.description ? { description: opts.description } : {}),
+    ...(opts.tools?.length
+      ? { tool: opts.tools.map((t) => ({ "@type": "HowToTool", name: t })) }
+      : {}),
+    step: steps.map((s, i) => ({
+      "@type": "HowToStep",
+      position: i + 1,
+      name: s.name,
+      text: s.detail,
+    })),
+  };
+}
+
 export function faqLd(faqs: { q: string; a: string }[]): Ld | null {
   if (!faqs.length) return null;
   return {
