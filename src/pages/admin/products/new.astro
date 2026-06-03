@@ -1,10 +1,11 @@
 ---
 import AdminLayout from "@/layouts/AdminLayout.astro";
 import ProductForm from "@/components/admin/ProductForm.astro";
-import { getDB } from "@/lib/db";
+import { getDB, getEnv } from "@/lib/db";
 import { nowIso, ulid } from "@/lib/ids";
 import { slugify } from "@/lib/format";
 import { parseProductForm } from "@/lib/admin";
+import { internalizeImage } from "@/lib/media";
 
 export const prerender = false;
 const db = getDB(Astro.locals);
@@ -26,6 +27,7 @@ if (Astro.request.method === "POST") {
     const exists = await db.prepare("SELECT 1 FROM products WHERE id = ?").bind(id).first();
     if (exists) id = `${id}-${ulid().slice(-4).toLowerCase()}`;
     const now = nowIso();
+    const imageUrl = await internalizeImage(getEnv(Astro.locals), p.image_url, p.name);
     try {
       await db
         .prepare(
@@ -33,7 +35,7 @@ if (Astro.request.method === "POST") {
            VALUES (?,?,?,?,?,?, 'USD','manual', ?,?,?,?,?,?,?)`,
         )
         .bind(
-          id, p.name, p.brand, p.category, p.image_url, p.price_cents, p.rating, p.description,
+          id, p.name, p.brand, p.category, imageUrl, p.price_cents, p.rating, p.description,
           JSON.stringify(p.pros), JSON.stringify(p.cons), JSON.stringify(p.specs), now, now,
         )
         .run();

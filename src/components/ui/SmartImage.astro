@@ -10,7 +10,8 @@ interface Props {
   eager?: boolean;
 }
 const { src, alt, width = 1200, height, class: cls = "", eager = false } = Astro.props;
-const url = cdnImage(src, { width });
+const env = (Astro.locals as any)?.runtime?.env ?? {};
+const url = cdnImage(src, { width, transform: env.IMAGE_TRANSFORMS === "on" });
 ---
 
 {

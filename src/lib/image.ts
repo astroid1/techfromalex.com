@@ -5,15 +5,17 @@
  */
 export function cdnImage(
   src: string | null | undefined,
-  opts: { width?: number; quality?: number } = {},
+  opts: { width?: number; quality?: number; transform?: boolean } = {},
 ): string | null {
   if (!src) return null;
   if (src.startsWith("/cdn-cgi/")) return src;
-  // Cloudflare Image Resizing (/cdn-cgi/image) is NOT enabled on this zone — it 404s —
-  // so serve the original image directly (R2 path or external URL). If Image Resizing
-  // is later enabled in the dashboard, restore the transform using `opts` here.
-  void opts;
-  return /^https?:\/\//.test(src) ? src : `/${src.replace(/^\//, "")}`;
+  const target = /^https?:\/\//.test(src) ? src : `/${src.replace(/^\//, "")}`;
+  // Cloudflare Image Transformations are opt-in per zone (IMAGE_TRANSFORMS var). When
+  // enabled, serve a resized + auto-format (webp/avif) variant; otherwise serve the
+  // original directly so images never break when transformations are off.
+  if (!opts.transform) return target;
+  const { width = 1200, quality = 75 } = opts;
+  return `/cdn-cgi/image/width=${width},quality=${quality},format=auto/${target}`;
 }
 
 export function retailerName(network: string | null | undefined): string {

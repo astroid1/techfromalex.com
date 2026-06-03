@@ -14,6 +14,7 @@ import {
 import { assertReferences, ReferentialError } from "@/lib/validate";
 import { generateDraft } from "@/lib/ai/generate";
 import { aiEdit } from "@/lib/ai/edit";
+import { internalizeImage } from "@/lib/media";
 
 export const prerender = false;
 const { id } = Astro.params;
@@ -161,6 +162,7 @@ if (Astro.request.method === "POST") {
     }
 
     if (!error) {
+      const heroFinal = await internalizeImage(env, heroUrl, heroAlt ?? title);
       const publishedAt = status === "published" && !c.published_at ? now : c.published_at;
       await db
         .prepare(
@@ -170,7 +172,7 @@ if (Astro.request.method === "POST") {
         )
         .bind(
           title, slug, dek, category, verdict, bodyMd, structuredRaw, seoTitle, seoDescription,
-          heroUrl, heroAlt, status, publishedAt, now, id,
+          heroFinal, heroAlt, status, publishedAt, now, id,
         )
         .run();
 

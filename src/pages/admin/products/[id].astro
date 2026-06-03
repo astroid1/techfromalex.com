@@ -6,6 +6,7 @@ import { nowIso, ulid } from "@/lib/ids";
 import { parseProductForm } from "@/lib/admin";
 import { runAmazonScrape, mapApifyItem } from "@/lib/apify";
 import { shortenTitle } from "@/lib/ai/title";
+import { internalizeImage } from "@/lib/media";
 
 export const prerender = false;
 const { id } = Astro.params;
@@ -96,13 +97,14 @@ if (Astro.request.method === "POST") {
     const pf = parseProductForm(f);
     if (!pf.name) error = "Name is required.";
     if (!error) {
+      const imageUrl = await internalizeImage(env, pf.image_url, pf.name);
       try {
         await db
           .prepare(
             `UPDATE products SET name=?,brand=?,category=?,image_url=?,price_cents=?,rating=?,description=?,pros_json=?,cons_json=?,specs_json=?,updated_at=? WHERE id=?`,
           )
           .bind(
-            pf.name, pf.brand, pf.category, pf.image_url, pf.price_cents, pf.rating, pf.description,
+            pf.name, pf.brand, pf.category, imageUrl, pf.price_cents, pf.rating, pf.description,
             JSON.stringify(pf.pros), JSON.stringify(pf.cons), JSON.stringify(pf.specs), nowIso(), id,
           )
           .run();
