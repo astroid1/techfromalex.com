@@ -82,7 +82,11 @@ function normalizeSpecs(raw: any): Record<string, string> {
 }
 
 function firstImage(raw: any): string | null {
-  const i = raw?.images?.mainImage ?? raw?.mainImage ?? raw?.thumbnailImage ?? raw?.image ?? raw?.thumbnail;
+  // Prefer the full-res gallery (junglee returns highResolutionImages) over the small thumbnail.
+  for (const arr of [raw?.highResolutionImages, raw?.galleryThumbnails]) {
+    if (Array.isArray(arr) && typeof arr[0] === "string") return arr[0];
+  }
+  const i = raw?.images?.mainImage ?? raw?.mainImage ?? raw?.image ?? raw?.thumbnailImage ?? raw?.thumbnail;
   if (typeof i === "string") return i;
   if (Array.isArray(raw?.images) && raw.images.length) {
     const f = raw.images[0];
@@ -90,6 +94,20 @@ function firstImage(raw: any): string | null {
     if (f && typeof f === "object") return f.url ?? f.link ?? f.large ?? null;
   }
   return null;
+}
+
+/** Category from the breadcrumb trail. junglee returns `breadCrumbs` as a ' > '-joined string. */
+function parseCategory(raw: any): string | null {
+  const bc = raw?.breadCrumbs ?? raw?.breadcrumbs ?? raw?.categories;
+  if (typeof bc === "string" && bc.trim()) {
+    const parts = bc.split(/\s*[>›»]\s*/).map((s: string) => s.trim()).filter(Boolean);
+    return parts.length ? parts[parts.length - 1] : null;
+  }
+  if (Array.isArray(bc) && bc.length) {
+    const last = bc[bc.length - 1];
+    return String(last?.name ?? last ?? "").trim() || null;
+  }
+  return raw?.category ? String(raw.category).trim() || null : null;
 }
 
 /** Map a raw Apify dataset item to our compact ImportItem (defensive — field names vary by actor). */
@@ -110,13 +128,7 @@ export function mapApifyItem(raw: any): ImportItem {
   const rating = num(raw?.stars) ?? num(raw?.rating) ?? num(raw?.averageRating);
   const asin = extractAsin(raw);
   const brandRaw = raw?.brand ?? raw?.manufacturer;
-  const breadcrumbs = raw?.breadcrumbs;
-  const category =
-    Array.isArray(breadcrumbs) && breadcrumbs.length
-      ? String(breadcrumbs[breadcrumbs.length - 1]?.name ?? breadcrumbs[breadcrumbs.length - 1] ?? "").trim() || null
-      : raw?.category
-        ? String(raw.category).trim()
-        : null;
+  const category = parseCategory(raw);
 
   const item: ImportItem = {
     name,

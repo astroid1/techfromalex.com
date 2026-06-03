@@ -6,6 +6,20 @@ import { formatPrice } from "@/lib/format";
 export const prerender = false;
 const db = getDB(Astro.locals);
 const imported = Astro.url.searchParams.get("imported");
+let notice: string | null = null;
+let error: string | null = null;
+if (Astro.request.method === "POST") {
+  const f = await Astro.request.formData();
+  if (String(f.get("__action") ?? "") === "delete") {
+    const pid = String(f.get("id") ?? "");
+    try {
+      await db.prepare("DELETE FROM products WHERE id = ?").bind(pid).run();
+      notice = "Product deleted.";
+    } catch {
+      error = "Can't delete — that product is referenced by an article. Remove it from that content first.";
+    }
+  }
+}
 const rows =
   (await db
     .prepare(
@@ -17,6 +31,8 @@ const rows =
 ---
 
 <AdminLayout title="Products">
+  {notice && <p class="mb-4 rounded-lg px-4 py-2 text-sm" style="color:var(--success);background:color-mix(in srgb,var(--success) 12%,transparent)">{notice}</p>}
+  {error && <p class="mb-4 rounded-lg px-4 py-2 text-sm" style="color:var(--danger);background:color-mix(in srgb,var(--danger) 12%,transparent)">{error}</p>}
   {
     imported && (
       <p class="mb-4 rounded-lg px-4 py-2 text-sm" style="color:var(--success);background:color-mix(in srgb,var(--success) 12%,transparent)">
@@ -35,7 +51,7 @@ const rows =
   <div class="mt-6 overflow-hidden rounded-xl border border-line bg-surface">
     <table class="w-full text-sm">
       <thead class="bg-surface-2 text-left text-xs uppercase tracking-wide text-muted">
-        <tr><th class="p-3 font-semibold">Name</th><th class="p-3 font-semibold">Brand</th><th class="p-3 font-semibold">Category</th><th class="p-3 font-semibold">Price</th><th class="p-3 font-semibold">Links</th></tr>
+        <tr><th class="p-3 font-semibold">Name</th><th class="p-3 font-semibold">Brand</th><th class="p-3 font-semibold">Category</th><th class="p-3 font-semibold">Price</th><th class="p-3 font-semibold">Links</th><th class="p-3"></th></tr>
       </thead>
       <tbody>
         {
@@ -47,10 +63,17 @@ const rows =
                 <td class="p-3 text-muted">{p.category ?? "—"}</td>
                 <td class="p-3">{formatPrice(p.price_cents, p.currency) ?? "—"}</td>
                 <td class="p-3 text-muted">{p.links}</td>
+                <td class="p-3 text-right">
+                  <form method="POST" onsubmit="return confirm('Delete this product permanently?')">
+                    <input type="hidden" name="__action" value="delete" />
+                    <input type="hidden" name="id" value={p.id} />
+                    <button class="text-xs font-semibold" style="color:var(--danger)">Delete</button>
+                  </form>
+                </td>
               </tr>
             ))
           ) : (
-            <tr><td colspan="5" class="p-6 text-center text-muted">No products yet. <a href="/admin/products/new" class="text-accent-strong">Add one →</a></td></tr>
+            <tr><td colspan="6" class="p-6 text-center text-muted">No products yet. <a href="/admin/products/new" class="text-accent-strong">Add one →</a></td></tr>
           )
         }
       </tbody>

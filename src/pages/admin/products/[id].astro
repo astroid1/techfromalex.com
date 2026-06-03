@@ -73,11 +73,11 @@ if (Astro.request.method === "POST") {
           await db
             .prepare(
               `UPDATE products SET price_cents=COALESCE(?,price_cents), currency=?, price_source='apify',
-                 price_observed_at=?, rating=COALESCE(?,rating), updated_at=? WHERE id=?`,
+                 price_observed_at=?, rating=COALESCE(?,rating), category=COALESCE(NULLIF(category,''), ?), updated_at=? WHERE id=?`,
             )
-            .bind(item.priceCents, item.currency, now, item.rating, now, id)
+            .bind(item.priceCents, item.currency, now, item.rating, item.category, now, id)
             .run();
-          notice = "Refreshed price & rating from Amazon.";
+          notice = "Refreshed price, rating & category from Amazon.";
         }
       } catch (e) {
         error = (e as Error).message;
