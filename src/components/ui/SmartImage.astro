@@ -11,13 +11,21 @@ interface Props {
 }
 const { src, alt, width = 1200, height, class: cls = "", eager = false } = Astro.props;
 const env = (Astro.locals as any)?.runtime?.env ?? {};
-const url = cdnImage(src, { width, transform: env.IMAGE_TRANSFORMS === "on" });
+const transform = env.IMAGE_TRANSFORMS === "on";
+const url = cdnImage(src, { width, transform });
+// Retina/HiDPI: also offer a 2x variant so large (featured/hero) images stay crisp
+// on high-density screens instead of upscaling a 1x source. Only emitted when the
+// transform actually applies — external pass-through returns the same URL for any
+// width, so url2x === url and no srcset is added.
+const url2x = cdnImage(src, { width: Math.min(width * 2, 2560), transform });
+const srcset = url && url2x && url2x !== url ? `${url} 1x, ${url2x} 2x` : undefined;
 ---
 
 {
   url ? (
     <img
       src={url}
+      srcset={srcset}
       alt={alt}
       width={width}
       height={height}

@@ -16,7 +16,8 @@ export type EmbedName =
   | "buy-button"
   | "callout"
   | "pros-cons"
-  | "comparison";
+  | "comparison"
+  | "promo";
 
 export type Segment =
   | { kind: "html"; html: string }
@@ -39,6 +40,7 @@ const EMBED_NAMES = new Set<EmbedName>([
   "callout",
   "pros-cons",
   "comparison",
+  "promo",
 ]);
 
 // Sanitize schema: body is untrusted DB content. Allow the structural elements
@@ -80,26 +82,32 @@ function isEmbedDirective(node: RootContent): node is DirectiveNode {
   );
 }
 
-/** Parse the `pros:` / `cons:` lists inside a :::pros-cons container. */
+/** Parse the `pros:` / `cons:` lists inside a :::pros-cons container. Robust to the
+ *  common AI output where "cons:" has no blank line before it, so markdown glues it
+ *  onto the previous list item and it never appears as its own paragraph. */
 function parseProsCons(node: DirectiveNode): { pros: string[]; cons: string[] } {
   const pros: string[] = [];
   const cons: string[] = [];
-  let mode: "pros" | "cons" | null = null;
+  let mode: "pros" | "cons" = "pros";
+  // Flatten the container into ordered lines (from paragraphs and list items).
+  const lines: string[] = [];
   for (const child of node.children) {
-    if (child.type === "paragraph") {
-      const t = mdToString(child).toLowerCase();
-      if (t.includes("pro")) mode = "pros";
-      else if (t.includes("con")) mode = "cons";
-    } else if (child.type === "list") {
-      for (const item of child.children) {
-        const text = mdToString(item).replace(/^(pros?|cons?):\s*/i, "").trim();
-        if (!text) continue;
-        if (mode === "cons") cons.push(text);
-        else pros.push(text);
-      }
+    if (child.type === "list") {
+      for (const item of child.children) lines.push(...mdToString(item).split(/\r?\n/));
+    } else {
+      lines.push(...mdToString(child).split(/\r?\n/));
     }
   }
-  return { pros, cons };
+  for (const raw of lines) {
+    const t = raw.trim();
+    if (!t) continue;
+    if (/^cons?\s*:?\s*$/i.test(t)) { mode = "cons"; continue; } // a "cons:" header line
+    if (/^pros?\s*:?\s*$/i.test(t)) { mode = "pros"; continue; } // a "pros:" header line
+    const glued = t.match(/^(.*\S)\s+cons\s*:?\s*$/i); // "...last pro item cons:"
+    if (glued) { pros.push(glued[1].trim()); mode = "cons"; continue; }
+    (mode === "cons" ? cons : pros).push(t.replace(/^(pros?|cons?):\s*/i, "").trim());
+  }
+  return { pros: pros.filter(Boolean), cons: cons.filter(Boolean) };
 }
 
 export async function renderBody(
@@ -107,7 +115,9 @@ export async function renderBody(
   products: Map<string, Product>,
 ): Promise<RenderedBody> {
   const parser = unified().use(remarkParse).use(remarkGfm).use(remarkDirective);
-  const tree = parser.parse(md) as Root;
+  // The FAQ is rendered from structured data, so drop a trailing (often empty) "## FAQ" heading.
+  const cleaned = md.replace(/(?:\r?\n)+#{1,6}[ \t]+FAQ\b[^\n]*[ \t]*(?:\r?\n)*$/i, "");
+  const tree = parser.parse(cleaned) as Root;
 
   const toc: TocHeading[] = [];
 
@@ -173,7 +183,7 @@ export async function renderBody(
       await flush();
       const dir = node;
       const name = dir.name as EmbedName;
-      if (name === "product-card" || name === "buy-button") {
+      if (name === "product-card" || name === "buy-button" || name === "promo") {
         segments.push({ kind: "embed", name, props: { id: dir.attributes?.id ?? "" } });
       } else if (name === "comparison") {
         const ids = (dir.attributes?.ids ?? "")

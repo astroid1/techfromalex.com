@@ -1,0 +1,85 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import ProgramForm from "@/components/admin/ProgramForm.astro";
+import { getDB, getEnv } from "@/lib/db";
+import { nowIso } from "@/lib/ids";
+import { internalizeImage } from "@/lib/media";
+
+export const prerender = false;
+const { id } = Astro.params;
+const db = getDB(Astro.locals);
+const env = getEnv(Astro.locals);
+let error: string | null = null;
+const profiles =
+  (
+    await db
+      .prepare(
+        // Load ALL profiles (not just active) so the program's current profile always
+        // round-trips in the dropdown instead of silently switching to another.
+        `SELECT ap.id, ap.name, ap.network, ap.tracking_tag, nw.link_param
+         FROM affiliate_profiles ap LEFT JOIN networks nw ON nw.id = ap.network
+         ORDER BY ap.name`,
+      )
+      .all<{ id: string; name: string; network: string; tracking_tag: string; link_param: string | null }>()
+  ).results ?? [];
+
+if (Astro.request.method === "POST") {
+  const isDelete = new URL(Astro.request.url).searchParams.get("delete") === "1";
+  if (isDelete) {
+    await db.prepare("DELETE FROM programs WHERE id = ?").bind(id).run();
+    return Astro.redirect("/admin/programs");
+  } else {
+    const f = await Astro.request.formData();
+    const name = String(f.get("name") ?? "").trim();
+    const profileId = String(f.get("affiliate_profile_id") ?? "");
+    const baseUrl = String(f.get("base_url") ?? "").trim();
+    const ctaLabel = String(f.get("cta_label") ?? "").trim() || "Learn more";
+    const headline = String(f.get("headline") ?? "").trim() || null;
+    const blurbV = String(f.get("blurb") ?? "").trim() || null;
+    const logoUrl = String(f.get("logo_url") ?? "").trim() || null;
+    const isActive = f.get("is_active") ? 1 : 0;
+    if (!name || !profileId || !baseUrl) error = "Name, affiliate profile and destination URL are required.";
+    else {
+      try {
+        new URL(baseUrl);
+      } catch {
+        error = "Destination URL must be a valid URL (https://…).";
+      }
+    }
+    if (!error) {
+      const logoFinal = await internalizeImage(env, logoUrl, name);
+      try {
+        await db
+          .prepare(
+            `UPDATE programs SET name=?, affiliate_profile_id=?, base_url=?, cta_label=?, headline=?, blurb=?, logo_url=?, is_active=?, updated_at=? WHERE id=?`,
+          )
+          .bind(name, profileId, baseUrl, ctaLabel, headline, blurbV, logoFinal, isActive, nowIso(), id)
+          .run();
+        return Astro.redirect("/admin/programs");
+      } catch (e) {
+        error = (e as Error).message;
+      }
+    }
+  }
+}
+
+const row = await db.prepare("SELECT * FROM programs WHERE id = ?").bind(id).first<Record<string, any>>();
+if (!row) return Astro.redirect("/admin/programs");
+const values = {
+  name: row.name,
+  affiliate_profile_id: row.affiliate_profile_id,
+  base_url: row.base_url,
+  cta_label: row.cta_label,
+  headline: row.headline,
+  blurb: row.blurb,
+  logo_url: row.logo_url,
+  is_active: row.is_active,
+};
+---
+
+<AdminLayout title="Edit program">
+  <ProgramForm values={values} error={error} submitLabel="Save changes" showDelete profiles={profiles} />
+  <p class="mt-6 max-w-lg text-xs text-muted">
+    Insert this program in an article body with <code class="rounded bg-surface-2 px-1.5 py-0.5 text-ink-soft">::promo&#123;id="{id}"&#125;</code>.
+  </p>
+</AdminLayout>

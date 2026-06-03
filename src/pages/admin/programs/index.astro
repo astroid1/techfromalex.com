@@ -1,0 +1,79 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { getDB } from "@/lib/db";
+
+export const prerender = false;
+const db = getDB(Astro.locals);
+const programs =
+  (
+    await db
+      .prepare(
+        `SELECT pg.id, pg.name, pg.base_url, pg.cta_label, pg.is_active,
+                ap.name AS profile_name, ap.is_active AS profile_active
+         FROM programs pg
+         LEFT JOIN affiliate_profiles ap ON ap.id = pg.affiliate_profile_id
+         ORDER BY pg.name`,
+      )
+      .all<{
+        id: string;
+        name: string;
+        base_url: string;
+        cta_label: string;
+        is_active: number;
+        profile_name: string | null;
+        profile_active: number | null;
+      }>()
+  ).results ?? [];
+---
+
+<AdminLayout title="Programs">
+  <div class="flex items-center justify-between gap-4">
+    <p class="max-w-xl text-sm text-muted">
+      Single-link affiliate programs (e.g. make.com) you promote with a CTA block in articles.
+      Insert one in any body with <code class="rounded bg-surface-2 px-1.5 py-0.5 text-ink-soft">::promo&#123;id="…"&#125;</code>.
+      Links are built from the chosen <a href="/admin/affiliates" class="text-accent-strong">affiliate profile</a> so the referral code is always applied.
+    </p>
+    <a href="/admin/programs/new" class="shrink-0 rounded-xl bg-accent px-4 py-2.5 font-semibold text-accent-contrast transition hover:brightness-105">
+      + New program
+    </a>
+  </div>
+
+  {
+    programs.length ? (
+      <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {programs.map((p) => (
+          <a
+            href={`/admin/programs/${p.id}`}
+            class="group rounded-xl border border-line bg-surface p-5 transition hover:border-line-strong"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <h3 class="font-semibold text-ink group-hover:text-accent-strong">{p.name}</h3>
+              <span
+                class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
+                style={
+                  p.is_active
+                    ? "color:var(--success); background: color-mix(in srgb, var(--success) 14%, transparent);"
+                    : "color:var(--muted); background: color-mix(in srgb, var(--muted) 14%, transparent);"
+                }
+              >
+                {p.is_active ? "Active" : "Inactive"}
+              </span>
+            </div>
+            <p class="mt-2 text-xs uppercase tracking-wide text-muted">
+              {p.profile_name ?? "no profile"}
+              {p.profile_name && !p.profile_active ? " (inactive)" : ""}
+            </p>
+            <p class="mt-2 truncate text-xs text-ink-soft">{p.base_url}</p>
+            <p class="mt-3">
+              <code class="rounded bg-surface-2 px-2 py-0.5 text-xs text-ink-soft">::promo&#123;id="{p.id}"&#125;</code>
+            </p>
+          </a>
+        ))}
+      </div>
+    ) : (
+      <div class="mt-6 rounded-xl border border-line bg-surface p-8 text-center text-muted">
+        No programs yet. <a href="/admin/programs/new" class="text-accent-strong">Add one →</a>
+      </div>
+    )
+  }
+</AdminLayout>

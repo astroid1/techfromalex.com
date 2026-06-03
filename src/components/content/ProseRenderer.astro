@@ -1,17 +1,20 @@
 ---
 import type { Segment } from "@/lib/render-body";
-import type { Product } from "@/lib/types";
+import type { Product, ProgramCta } from "@/lib/types";
 import ProductCard from "@/components/affiliate/ProductCard.astro";
 import BuyButton from "@/components/affiliate/BuyButton.astro";
 import ComparisonTable from "@/components/affiliate/ComparisonTable.astro";
 import Callout from "@/components/mdx/Callout.astro";
 import ProsCons from "@/components/mdx/ProsCons.astro";
+import ProgramCtaBlock from "@/components/content/ProgramCta.astro";
 
 interface Props {
   segments: Segment[];
   products: Map<string, Product>;
+  programs?: Map<string, ProgramCta>;
+  admin?: boolean;
 }
-const { segments, products } = Astro.props;
+const { segments, products, programs = new Map(), admin = false } = Astro.props;
 ---
 
 <div class="article-body">
@@ -38,6 +41,8 @@ const { segments, products } = Astro.props;
           return <Callout type={p.type} title={p.title} bodyHtml={p.bodyHtml} />;
         case "pros-cons":
           return <ProsCons pros={p.pros} cons={p.cons} />;
+        case "promo":
+          return <ProgramCtaBlock program={programs.get(p.id)} admin={admin} />;
         default:
           return null;
       }

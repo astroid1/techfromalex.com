@@ -15,7 +15,7 @@ export function breadcrumbLd(crumbs: { name: string; url: string }[]): Ld {
   };
 }
 
-export function productLd(p: Product, opts: { withContext?: boolean } = {}): Ld {
+export function productLd(p: Product, origin: string, opts: { withContext?: boolean } = {}): Ld {
   const ld: Ld = {
     ...(opts.withContext ? { "@context": "https://schema.org" } : {}),
     "@type": "Product",
@@ -23,7 +23,8 @@ export function productLd(p: Product, opts: { withContext?: boolean } = {}): Ld 
   };
   if (p.brand) ld.brand = { "@type": "Brand", name: p.brand };
   if (p.description) ld.description = p.description;
-  if (p.imageUrl) ld.image = p.imageUrl;
+  // schema.org image must be absolute; internalized images are stored as /img/... paths.
+  if (p.imageUrl) ld.image = new URL(p.imageUrl, origin).toString();
   if (p.priceCents != null && p.buyUrl) {
     ld.offers = {
       "@type": "Offer",
@@ -49,7 +50,7 @@ function authorLd(author: Author | null, origin: string): Ld {
 const publisherLd = (origin: string): Ld => ({
   "@type": "Organization",
   name: "Tech From Alex",
-  logo: { "@type": "ImageObject", url: `${origin}/icon.png` },
+  logo: { "@type": "ImageObject", url: `${origin}/favicon.svg` },
 });
 
 /** Primary article schema. Reviews → Review (with reviewRating + itemReviewed). */
@@ -83,7 +84,7 @@ export function articleLd(
         bestRating: 10,
         worstRating: 1,
       },
-      ...(featured ? { itemReviewed: productLd(featured) } : {}),
+      ...(featured ? { itemReviewed: productLd(featured, origin) } : {}),
     };
   }
   return {
@@ -94,6 +95,7 @@ export function articleLd(
 
 export function itemListLd(
   products: { product: Product; position: number }[],
+  origin: string,
 ): Ld {
   return {
     "@context": "https://schema.org",
@@ -101,7 +103,7 @@ export function itemListLd(
     itemListElement: products.map(({ product, position }) => ({
       "@type": "ListItem",
       position,
-      item: productLd(product),
+      item: productLd(product, origin),
     })),
   };
 }

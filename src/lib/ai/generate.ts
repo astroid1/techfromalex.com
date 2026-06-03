@@ -3,7 +3,7 @@ import { writeRevision, productIdsInBody } from "@/lib/admin";
 import { findMissingProductIds } from "@/lib/validate";
 import { nowIso } from "@/lib/ids";
 import { generateStructured } from "./anthropic";
-import { buildSystem, buildUserText, getTemplate, type ProductFact } from "./templates";
+import { buildSystem, buildUserText, getTemplate, naturalize, naturalizeDeep, type ProductFact } from "./templates";
 import type { ContentType } from "@/lib/types";
 
 interface DraftOutput {
@@ -84,6 +84,15 @@ export async function generateDraft(env: Env, db: D1Database, contentId: string)
   const warnings = missing.length
     ? [`Removed references to unknown products: ${missing.join(", ")}`]
     : [];
+
+  // Strip em dashes / AI-tell punctuation so the copy reads like a person wrote it.
+  data.title = naturalize(data.title);
+  data.metaDescription = naturalize(data.metaDescription);
+  data.seoTitle = naturalize(data.seoTitle);
+  data.heroAlt = naturalize(data.heroAlt);
+  data.bodyMarkdown = naturalize(data.bodyMarkdown);
+  data.faq = (data.faq ?? []).map((f) => ({ q: naturalize(f.q), a: naturalize(f.a) }));
+  data.structured = naturalizeDeep(data.structured);
 
   const now = nowIso();
   const newStruct = {

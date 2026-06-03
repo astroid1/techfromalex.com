@@ -1,0 +1,160 @@
+---
+interface ProfileOpt {
+  id: string;
+  name: string;
+  network: string;
+  tracking_tag: string;
+  link_param: string | null;
+}
+interface Props {
+  values?: {
+    name?: string;
+    affiliate_profile_id?: string;
+    base_url?: string;
+    cta_label?: string;
+    headline?: string;
+    blurb?: string;
+    logo_url?: string;
+    is_active?: number;
+  };
+  error?: string | null;
+  submitLabel?: string;
+  showDelete?: boolean;
+  profiles?: ProfileOpt[];
+}
+const {
+  values = {},
+  error = null,
+  submitLabel = "Save",
+  showDelete = false,
+  profiles = [],
+} = Astro.props;
+const input =
+  "mt-1 w-full rounded-lg border border-line-strong bg-paper px-3 py-2 text-ink outline-none transition focus-visible:border-accent";
+const currentProfile = values.affiliate_profile_id ?? profiles[0]?.id ?? "";
+const profileData = JSON.stringify(
+  Object.fromEntries(profiles.map((p) => [p.id, { param: p.link_param ?? "tag", tag: p.tracking_tag }])),
+);
+const blurb = values.blurb ?? "";
+---
+
+<form method="POST" class="max-w-lg space-y-5" data-program data-profiles={profileData}>
+  {
+    error && (
+      <p class="rounded-lg px-4 py-2 text-sm" style="color:var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent)">
+        {error}
+      </p>
+    )
+  }
+
+  {
+    profiles.length === 0 && (
+      <p class="rounded-lg border border-line bg-surface-2 p-3 text-sm text-muted">
+        No affiliate profiles yet. A program needs a profile (it carries the network + tracking tag).{" "}
+        <a href="/admin/affiliates/new" class="text-accent-strong">Add a profile first →</a>
+      </p>
+    )
+  }
+
+  <label class="block">
+    <span class="text-sm font-medium">Name</span>
+    <input name="name" value={values.name ?? ""} required class={input} placeholder="Make" />
+    <span class="mt-1 block text-xs text-muted">Internal label + fallback headline.</span>
+  </label>
+
+  <label class="block">
+    <span class="text-sm font-medium">Affiliate profile</span>
+    <select name="affiliate_profile_id" data-prog-profile class={input} required>
+      {profiles.map((p) => (
+        <option value={p.id} selected={currentProfile === p.id}>
+          {p.name} ({p.network})
+        </option>
+      ))}
+    </select>
+    <span class="mt-1 block text-xs text-muted">The link is built with this profile's tag, so the referral code is always applied.</span>
+  </label>
+
+  <label class="block">
+    <span class="text-sm font-medium">Destination URL (no tracking code)</span>
+    <input name="base_url" data-prog-url value={values.base_url ?? ""} required class={input} placeholder="https://www.make.com/en/register" type="url" />
+    <span class="mt-1 block text-xs text-muted">The plain landing page. The referral code is appended automatically.</span>
+  </label>
+
+  <div class="rounded-lg border border-line bg-surface-2 p-3 text-xs text-muted">
+    Final link: <code data-prog-preview class="break-all text-ink-soft">—</code>
+  </div>
+
+  <div class="grid gap-4 sm:grid-cols-2">
+    <label class="block">
+      <span class="text-sm font-medium">Button label</span>
+      <input name="cta_label" value={values.cta_label ?? "Learn more"} required class={input} placeholder="Try Make free" />
+    </label>
+    <label class="block">
+      <span class="text-sm font-medium">Logo URL (optional)</span>
+      <input name="logo_url" value={values.logo_url ?? ""} class={input} placeholder="/img/uploads/… or https://" />
+    </label>
+  </div>
+
+  <label class="block">
+    <span class="text-sm font-medium">Headline (optional)</span>
+    <input name="headline" value={values.headline ?? ""} class={input} placeholder="Make — automate anything" />
+    <span class="mt-1 block text-xs text-muted">Shown bold in the CTA block. Defaults to the name.</span>
+  </label>
+
+  <label class="block">
+    <span class="text-sm font-medium">Blurb (optional)</span>
+    <textarea name="blurb" rows="2" class={input} placeholder="One line on why it's worth trying.">{blurb}</textarea>
+  </label>
+
+  <label class="flex items-center gap-2">
+    <input type="checkbox" name="is_active" value="1" checked={values.is_active === undefined || values.is_active === 1} />
+    <span class="text-sm font-medium">Active (can be inserted in articles)</span>
+  </label>
+
+  <div class="flex items-center gap-3 pt-2">
+    <button class="rounded-xl bg-accent px-5 py-2.5 font-semibold text-accent-contrast transition hover:brightness-105">
+      {submitLabel}
+    </button>
+    <a href="/admin/programs" class="rounded-xl border border-line-strong px-5 py-2.5 font-semibold transition hover:bg-surface-2">
+      Cancel
+    </a>
+    {
+      showDelete && (
+        <button
+          formaction="?delete=1"
+          class="ml-auto rounded-xl px-4 py-2.5 text-sm font-semibold transition hover:bg-surface-2"
+          style="color:var(--danger)"
+        >
+          Delete
+        </button>
+      )
+    }
+  </div>
+</form>
+
+<script is:inline>
+  (function () {
+    var form = document.querySelector("form[data-program]");
+    if (!form) return;
+    var map = {};
+    try {
+      map = JSON.parse(form.getAttribute("data-profiles") || "{}");
+    } catch (e) {}
+    var sel = form.querySelector("[data-prog-profile]");
+    var url = form.querySelector("[data-prog-url]");
+    var prev = form.querySelector("[data-prog-preview]");
+    if (!url || !prev) return;
+    function upd() {
+      var base = (url.value || "").trim() || "https://example.com/";
+      var p = (sel && map[sel.value]) || { param: "tag", tag: "YOUR-TAG" };
+      var out = base;
+      if (p.param) {
+        out += (base.indexOf("?") >= 0 ? "&" : "?") + p.param + "=" + (p.tag || "YOUR-TAG");
+      }
+      prev.textContent = out;
+    }
+    if (sel) sel.addEventListener("change", upd);
+    url.addEventListener("input", upd);
+    upd();
+  })();
+</script>

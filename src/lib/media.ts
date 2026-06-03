@@ -33,7 +33,12 @@ export async function storeRemoteImage(
   if (!url) return null;
   try {
     const res = await fetch(optimizeAmazonImageUrl(url), {
-      headers: { "user-agent": "Mozilla/5.0 (compatible; TechFromAlexBot/1.0)" },
+      headers: {
+        // A realistic browser UA + Accept: many hosts 403 unknown bot agents.
+        "user-agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        accept: "image/avif,image/webp,image/png,image/jpeg,*/*",
+      },
     });
     if (!res.ok) return url;
     const mime = (res.headers.get("content-type") ?? "image/jpeg").split(";")[0].trim().toLowerCase();

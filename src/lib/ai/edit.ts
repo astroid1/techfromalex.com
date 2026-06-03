@@ -2,7 +2,7 @@ import { getProducts, getContentProductIds } from "@/lib/content";
 import { productIdsInBody } from "@/lib/admin";
 import { findMissingProductIds } from "@/lib/validate";
 import { generateStructured } from "./anthropic";
-import { buildSystem, getTemplate, type ProductFact } from "./templates";
+import { buildSystem, getTemplate, naturalize, naturalizeDeep, type ProductFact } from "./templates";
 import type { ContentType } from "@/lib/types";
 
 interface DraftOutput {
@@ -119,6 +119,15 @@ export async function aiEdit(
   const warnings = missing.length
     ? [`Removed references to unknown products: ${missing.join(", ")}`]
     : [];
+
+  // Strip em dashes / AI-tell punctuation so the copy reads like a person wrote it.
+  data.title = naturalize(data.title);
+  data.metaDescription = naturalize(data.metaDescription);
+  data.seoTitle = naturalize(data.seoTitle);
+  data.heroAlt = naturalize(data.heroAlt);
+  data.bodyMarkdown = naturalize(data.bodyMarkdown);
+  if (Array.isArray(data.faq)) data.faq = data.faq.map((f) => ({ q: naturalize(f.q), a: naturalize(f.a) }));
+  data.structured = naturalizeDeep(data.structured);
 
   let curStruct: Record<string, any> = {};
   try {

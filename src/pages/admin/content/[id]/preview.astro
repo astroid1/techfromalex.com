@@ -5,6 +5,7 @@ import SmartImage from "@/components/ui/SmartImage.astro";
 import CategoryBadge from "@/components/ui/CategoryBadge.astro";
 import AffiliateDisclosure from "@/components/affiliate/AffiliateDisclosure.astro";
 import ProseRenderer from "@/components/content/ProseRenderer.astro";
+import Faq from "@/components/content/Faq.astro";
 import ReviewIntro from "@/components/templates/ReviewIntro.astro";
 import RoundupIntro from "@/components/templates/RoundupIntro.astro";
 import ComparisonIntro from "@/components/templates/ComparisonIntro.astro";
@@ -12,7 +13,8 @@ import NewsIntro from "@/components/templates/NewsIntro.astro";
 import { getDB } from "@/lib/db";
 import { getProducts } from "@/lib/content";
 import { renderBody } from "@/lib/render-body";
-import { productIdsInBody } from "@/lib/admin";
+import { productIdsInBody, programIdsInBody } from "@/lib/admin";
+import { getPrograms } from "@/lib/programs";
 
 export const prerender = false;
 const { id } = Astro.params;
@@ -31,6 +33,7 @@ const rel =
 for (const r of rel) idSet.add(r.product_id);
 
 const products = await getProducts(db, [...idSet]);
+const programs = await getPrograms(db, programIdsInBody(c.body_md || ""));
 const { segments } = await renderBody(c.body_md || "", products);
 
 const content = {
@@ -65,7 +68,8 @@ const hasAffiliate = products.size > 0;
       {c.type === "roundup" && <RoundupIntro content={content} products={products} />}
       {c.type === "comparison" && <ComparisonIntro content={content} products={products} />}
       {c.type === "news_deal" && <NewsIntro content={content} products={products} />}
-      <ProseRenderer segments={segments} products={products} />
+      <ProseRenderer segments={segments} products={products} programs={programs} admin />
+      <Faq items={Array.isArray(structured.faq) ? structured.faq : []} />
     </div>
   </Container>
 </Base>

@@ -13,9 +13,35 @@ export function stripPlainText(md: string): string {
     .trim();
 }
 
-/** Product ids referenced anywhere in a body (directive id="..."). */
+/** Extract a directive id from its `{...}` attribute string. Matches every form
+ *  remark-directive resolves: shorthand `#id`, unquoted `id=x`, and `id="x"`/`id='x'`
+ *  — so this stays in sync with what render-body actually renders. */
+function directiveId(attrs: string): string | null {
+  const shorthand = attrs.match(/(?:^|\s)#([A-Za-z0-9_-]+)/);
+  if (shorthand) return shorthand[1];
+  const m = attrs.match(/\bid=(?:"([^"]+)"|'([^']+)'|([^\s}]+))/);
+  return m ? (m[1] ?? m[2] ?? m[3] ?? null) : null;
+}
+
+/** Program ids referenced by ::promo{...} CTA blocks (any directive id syntax). */
+export function programIdsInBody(md: string): string[] {
+  const ids: string[] = [];
+  for (const m of md.matchAll(/::promo\{([^}]*)\}/g)) {
+    const id = directiveId(m[1]);
+    if (id) ids.push(id);
+  }
+  return [...new Set(ids)];
+}
+
+/**
+ * Product ids referenced anywhere in a body (directive id="..."), EXCLUDING ::promo
+ * blocks — those ids are programs, validated/resolved separately. ::promo blocks are
+ * stripped by OCCURRENCE (not by id value) so a product id that happens to equal a
+ * program id is still validated.
+ */
 export function productIdsInBody(md: string): string[] {
-  return [...new Set([...md.matchAll(/id="([^"]+)"/g)].map((m) => m[1]))];
+  const stripped = md.replace(/::promo\{[^}]*\}/g, " ");
+  return [...new Set([...stripped.matchAll(/id="([^"]+)"/g)].map((m) => m[1]))];
 }
 
 /** Rebuild the FTS row for a content item. */

@@ -8,14 +8,33 @@ export function cdnImage(
   opts: { width?: number; quality?: number; transform?: boolean } = {},
 ): string | null {
   if (!src) return null;
-  if (src.startsWith("/cdn-cgi/")) return src;
-  const target = /^https?:\/\//.test(src) ? src : `/${src.replace(/^\//, "")}`;
-  // Cloudflare Image Transformations are opt-in per zone (IMAGE_TRANSFORMS var). When
-  // enabled, serve a resized + auto-format (webp/avif) variant; otherwise serve the
-  // original directly so images never break when transformations are off.
-  if (!opts.transform) return target;
+  // Already-built transform URLs and inline data: URIs pass through untouched.
+  if (src.startsWith("/cdn-cgi/") || src.startsWith("data:")) return src;
+  // Treat protocol-relative ("//host/x") as absolute so its host is checked too.
+  const isProtoRel = src.startsWith("//");
+  const isAbsolute = isProtoRel || /^https?:\/\//i.test(src);
+  const target = isAbsolute ? src : `/${src.replace(/^\//, "")}`;
+  // Cloudflare Image Transformations can only fetch SAME-ZONE sources — an external
+  // origin URL returns 403 through /cdn-cgi/image. So only transform our own paths
+  // (relative, or absolute on techfromalex.com); pass external URLs straight through
+  // so a not-yet-internalized image still loads instead of dying with a 403.
+  let sameZone = !isAbsolute;
+  if (isAbsolute) {
+    try {
+      // Dot-boundary match: apex + real subdomains only (not "faketechfromalex.com").
+      const h = new URL(isProtoRel ? `https:${src}` : src).hostname.toLowerCase();
+      sameZone = h === "techfromalex.com" || h.endsWith(".techfromalex.com");
+    } catch {
+      sameZone = false;
+    }
+  }
+  // Image Transformations are opt-in per zone (IMAGE_TRANSFORMS var). When enabled,
+  // serve a resized + auto-format (webp/avif) variant; otherwise serve the original.
+  if (!opts.transform || !sameZone) return target;
   const { width = 1200, quality = 75 } = opts;
-  return `/cdn-cgi/image/width=${width},quality=${quality},format=auto/${target}`;
+  // Strip target's leading slash so relative paths don't produce a double slash
+  // (".../format=auto//img/..."); absolute same-zone URLs are unaffected.
+  return `/cdn-cgi/image/width=${width},quality=${quality},format=auto/${target.replace(/^\//, "")}`;
 }
 
 export function retailerName(network: string | null | undefined): string {

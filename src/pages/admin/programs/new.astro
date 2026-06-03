@@ -1,0 +1,75 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import ProgramForm from "@/components/admin/ProgramForm.astro";
+import { getDB, getEnv } from "@/lib/db";
+import { nowIso, ulid } from "@/lib/ids";
+import { slugify } from "@/lib/format";
+import { internalizeImage } from "@/lib/media";
+
+export const prerender = false;
+const db = getDB(Astro.locals);
+const env = getEnv(Astro.locals);
+let error: string | null = null;
+let values: Record<string, unknown> = {};
+const profiles =
+  (
+    await db
+      .prepare(
+        // Only active profiles whose network appends a tag param — a program must
+        // produce a tagged link (an empty-param network would ship a raw URL).
+        `SELECT ap.id, ap.name, ap.network, ap.tracking_tag, nw.link_param
+         FROM affiliate_profiles ap LEFT JOIN networks nw ON nw.id = ap.network
+         WHERE ap.is_active = 1 AND COALESCE(nw.link_param, 'tag') <> '' ORDER BY ap.name`,
+      )
+      .all<{ id: string; name: string; network: string; tracking_tag: string; link_param: string | null }>()
+  ).results ?? [];
+
+if (Astro.request.method === "POST") {
+  const f = await Astro.request.formData();
+  const name = String(f.get("name") ?? "").trim();
+  const profileId = String(f.get("affiliate_profile_id") ?? "");
+  const baseUrl = String(f.get("base_url") ?? "").trim();
+  const ctaLabel = String(f.get("cta_label") ?? "").trim() || "Learn more";
+  const headline = String(f.get("headline") ?? "").trim() || null;
+  const blurbV = String(f.get("blurb") ?? "").trim() || null;
+  const logoUrl = String(f.get("logo_url") ?? "").trim() || null;
+  const isActive = f.get("is_active") ? 1 : 0;
+  values = {
+    name, affiliate_profile_id: profileId, base_url: baseUrl, cta_label: ctaLabel,
+    headline, blurb: blurbV, logo_url: logoUrl, is_active: isActive,
+  };
+
+  if (!name || !profileId || !baseUrl) error = "Name, affiliate profile and destination URL are required.";
+  else {
+    try {
+      new URL(baseUrl);
+    } catch {
+      error = "Destination URL must be a valid URL (https://…).";
+    }
+  }
+
+  if (!error) {
+    let id = slugify(name) || ulid().toLowerCase();
+    const exists = await db.prepare("SELECT 1 FROM programs WHERE id = ?").bind(id).first();
+    if (exists) id = `${id}-${ulid().slice(-4).toLowerCase()}`;
+    const now = nowIso();
+    const logoFinal = await internalizeImage(env, logoUrl, name);
+    try {
+      await db
+        .prepare(
+          `INSERT INTO programs (id, name, affiliate_profile_id, base_url, cta_label, headline, blurb, logo_url, is_active, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(id, name, profileId, baseUrl, ctaLabel, headline, blurbV, logoFinal, isActive, now, now)
+        .run();
+      return Astro.redirect("/admin/programs");
+    } catch (e) {
+      error = (e as Error).message;
+    }
+  }
+}
+---
+
+<AdminLayout title="New program">
+  <ProgramForm values={values} error={error} submitLabel="Create program" profiles={profiles} />
+</AdminLayout>

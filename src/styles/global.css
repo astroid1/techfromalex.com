@@ -131,6 +131,9 @@ html {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Offset in-page anchor jumps for the sticky header (h-16 = 4rem) so a linked
+     heading lands below the header instead of being hidden/cut off under it. */
+  scroll-padding-top: 5.5rem;
 }
 
 body {

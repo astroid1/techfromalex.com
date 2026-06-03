@@ -6,6 +6,7 @@ import SmartImage from "@/components/ui/SmartImage.astro";
 import CategoryBadge from "@/components/ui/CategoryBadge.astro";
 import AffiliateDisclosure from "@/components/affiliate/AffiliateDisclosure.astro";
 import ProseRenderer from "@/components/content/ProseRenderer.astro";
+import Faq from "@/components/content/Faq.astro";
 import TOC from "@/components/blog/TOC.astro";
 import PostCard from "@/components/blog/PostCard.astro";
 import JsonLd from "@/components/seo/JsonLd.astro";
@@ -22,9 +23,11 @@ import {
   getRelated,
 } from "@/lib/content";
 import { renderBody } from "@/lib/render-body";
+import { getPrograms } from "@/lib/programs";
+import { programIdsInBody } from "@/lib/admin";
 import { formatDate } from "@/lib/format";
 import { CATEGORY_NAMES } from "@/lib/types";
-import { articleLd, breadcrumbLd, itemListLd, productLd } from "@/lib/jsonld";
+import { articleLd, breadcrumbLd, itemListLd, productLd, faqLd } from "@/lib/jsonld";
 
 export const prerender = false;
 
@@ -44,6 +47,7 @@ if (Array.isArray(s.picks)) for (const p of s.picks) if (p.productId) structIds.
 if (Array.isArray(s.entrants)) structIds.push(...s.entrants);
 const productIds = [...new Set([...relIds, ...structIds, ...bodyIds])];
 const products = await getProducts(db, productIds);
+const programs = await getPrograms(db, programIdsInBody(content.bodyMd));
 
 const { segments, toc } = await renderBody(content.bodyMd, products);
 const author = await getAuthor(db, content.authorId);
@@ -73,13 +77,16 @@ const ld: unknown[] = [
   ),
 ];
 const firstProduct = [...products.values()][0];
-if (firstProduct) ld.push(productLd(firstProduct, { withContext: true }));
+if (firstProduct) ld.push(productLd(firstProduct, origin, { withContext: true }));
 if (content.type === "roundup" && Array.isArray(s.picks)) {
   const list = s.picks
     .map((pk: any, i: number) => ({ product: products.get(pk.productId)!, position: i + 1 }))
     .filter((x: any) => x.product);
-  if (list.length) ld.push(itemListLd(list));
+  if (list.length) ld.push(itemListLd(list, origin));
 }
+const faqItems: { q: string; a: string }[] = Array.isArray(s.faq) ? s.faq : [];
+const faqJson = faqLd(faqItems);
+if (faqJson) ld.push(faqJson);
 ---
 
 <Base
@@ -144,7 +151,8 @@ if (content.type === "roundup" && Array.isArray(s.picks)) {
         {content.type === "roundup" && <RoundupIntro content={content} products={products} />}
         {content.type === "comparison" && <ComparisonIntro content={content} products={products} />}
         {content.type === "news_deal" && <NewsIntro content={content} products={products} />}
-        <ProseRenderer segments={segments} products={products} />
+        <ProseRenderer segments={segments} products={products} programs={programs} />
+        <Faq items={faqItems} />
       </article>
 
       {

@@ -65,7 +65,7 @@ const TEMPLATES: Record<
       "Write a 1,200–1,800 word single-product review. structured.productId MUST be the provided product's id. " +
       "verdictScore is 0–10 (one decimal). Open with a short hook, then ## sections (Design, Performance, etc.). " +
       "Place one ::product-card{id=\"...\"} near the top and one ::buy-button{id=\"...\"} near the end. " +
-      "Include a :::pros-cons block. End with a ## FAQ section mirroring the faq array.",
+      "Include a :::pros-cons block with several real items under BOTH pros and cons.",
   },
   comparison: {
     label: "head-to-head comparison",
@@ -82,7 +82,7 @@ const TEMPLATES: Record<
     instructions:
       "Write a 1,000–1,500 word head-to-head comparison. structured.entrants are the provided product ids (2+); " +
       "overallWinnerId must be one of them. Include a :::comparison{ids=\"id1,id2\"} block. Use ## sections per axis " +
-      "(price, performance, etc.) naming the winner of each. End with a ## FAQ section.",
+      "(price, performance, etc.) naming the winner of each.",
   },
   roundup: {
     label: "'best X' roundup / buying guide",
@@ -113,7 +113,7 @@ const TEMPLATES: Record<
     instructions:
       "Write a 1,500–2,500 word 'best X' buying guide. structured.picks ranks the provided products (rank starts at 1); " +
       "each productId MUST be a provided id; award is e.g. 'Best Overall', 'Best Budget'. For each pick write a ## section " +
-      "with a ::product-card{id=\"...\"} and a short verdict. Add a ## How We Chose section. End with a ## FAQ section.",
+      "with a ::product-card{id=\"...\"} and a short verdict. Add a ## How We Chose section.",
   },
   news_deal: {
     label: "news / deal post",
@@ -131,7 +131,7 @@ const TEMPLATES: Record<
     instructions:
       "Write a 400–700 word news or deal post. Lead with the news. If a product is provided and it's a deal, set isDeal=true " +
       "and dealProductId to that id, and include a ::buy-button{id=\"...\"}. Do NOT state a specific price unless one is given " +
-      "in the brief. Keep it tight and factual. End with a short ## FAQ section if useful.",
+      "in the brief. Keep it tight and factual.",
   },
 };
 
@@ -139,7 +139,7 @@ export function getTemplate(type: ContentType) {
   return TEMPLATES[type];
 }
 
-const FORMAT_SPEC = `OUTPUT FORMAT — bodyMarkdown is GitHub-flavored markdown. Embed these directives EXACTLY, each on its own line:
+const FORMAT_SPEC = `OUTPUT FORMAT. bodyMarkdown is GitHub-flavored markdown. Embed these directives EXACTLY, each on its own line:
 - ::product-card{id="PRODUCT_ID"}        a full product card
 - ::buy-button{id="PRODUCT_ID"}          a buy CTA
 - :::callout{type="info" title="..."}\\n...text...\\n:::    a callout (types: info, tip, warning, danger)
@@ -149,11 +149,14 @@ const FORMAT_SPEC = `OUTPUT FORMAT — bodyMarkdown is GitHub-flavored markdown.
 
 RULES:
 - Use ONLY product ids from the PRODUCTS list below. Never invent an id, price, spec, rating, or retailer URL.
-- Never write a raw <a> tag or an http(s) link to a retailer — the site builds monetized links from the ids.
+- Never write a raw <a> tag or an http(s) link to a retailer. The site builds monetized links from the ids.
 - Use the primary keyword naturally in the title, metaDescription, and first paragraph. One # H1 is the title; sections are ##.
 - metaDescription: 120–160 characters. seoTitle: <= 60 characters.
 - Write in first person, direct and opinionated, evidence-led, no hype or filler. You have actually used the gear.
-- A site-wide FTC affiliate disclosure is rendered automatically — do not write your own.`;
+- Write the way a real person talks. NEVER use em dashes or en dashes as punctuation; use commas, periods, parentheses, or short separate sentences instead. Avoid AI-tell clichés and filler.
+- FAQ: put 4 to 6 genuinely useful question/answer pairs ONLY in the structured "faq" array. Do NOT add a FAQ heading or section in bodyMarkdown; the site renders the FAQ from that array.
+- pros-cons: always include several real items under BOTH pros and cons, with a blank line before the "cons:" label.
+- A site-wide FTC affiliate disclosure is rendered automatically, so do not write your own.`;
 
 export function buildSystem(type: ContentType, products: ProductFact[]): SystemBlock[] {
   const tmpl = TEMPLATES[type];
@@ -198,4 +201,29 @@ export function buildUserText(
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+/**
+ * Strip AI-tell punctuation from generated prose so it reads like a person wrote it.
+ * Em dashes and spaced en dashes become commas; numeric ranges (10–20) are left alone.
+ * Belt-and-suspenders alongside the prompt rule, since model compliance is never 100%.
+ */
+export function naturalize(s: string): string {
+  if (!s) return s;
+  return s
+    .replace(/[ \t]*—[ \t]*/g, ", ") // em dash -> comma
+    .replace(/[ \t]+–[ \t]+/g, ", ") // spaced en dash -> comma (ranges like 10–20 stay)
+    .replace(/,[ \t]*,/g, ","); // collapse accidental double commas
+}
+
+/** Apply naturalize() to every string inside an arbitrary structured value. */
+export function naturalizeDeep<T>(value: T): T {
+  if (typeof value === "string") return naturalize(value) as unknown as T;
+  if (Array.isArray(value)) return value.map((v) => naturalizeDeep(v)) as unknown as T;
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) out[k] = naturalizeDeep(v);
+    return out as T;
+  }
+  return value;
 }

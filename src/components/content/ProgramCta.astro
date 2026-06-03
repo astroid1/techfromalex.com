@@ -1,0 +1,51 @@
+---
+import SmartImage from "@/components/ui/SmartImage.astro";
+import type { ProgramCta } from "@/lib/types";
+
+interface Props {
+  program?: ProgramCta | null;
+  /** Admin preview: show a warning placeholder instead of hiding a broken/missing program. */
+  admin?: boolean;
+}
+const { program, admin = false } = Astro.props;
+---
+
+{
+  program && program.url ? (
+    <aside class="not-prose my-8 flex flex-col gap-5 rounded-2xl border border-line bg-surface p-6 sm:flex-row sm:items-center">
+      {program.logoUrl && (
+        <div class="shrink-0">
+          <SmartImage
+            src={program.logoUrl}
+            alt={`${program.name} logo`}
+            width={120}
+            class="h-14 w-14 rounded-xl bg-surface-2 object-contain p-1.5"
+          />
+        </div>
+      )}
+      <div class="min-w-0 flex-1">
+        <p class="text-[11px] font-semibold uppercase tracking-wide text-muted">Sponsored</p>
+        <h4 class="mt-1 font-display text-xl font-extrabold tracking-tight text-ink">{program.headline}</h4>
+        {program.blurb && <p class="mt-1.5 leading-relaxed text-ink-soft">{program.blurb}</p>}
+      </div>
+      <a
+        href={program.url}
+        target="_blank"
+        rel="nofollow sponsored noopener"
+        class="btn-accent group inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-5 py-3 font-semibold"
+      >
+        {program.ctaLabel}
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="transition group-hover:translate-x-0.5">
+          <path d="M5 12h14m-6-6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </a>
+    </aside>
+  ) : admin ? (
+    <aside class="not-prose my-8 rounded-2xl border border-dashed border-line-strong bg-surface-2 p-5 text-sm text-muted">
+      ⚠ Promo block:{" "}
+      {program
+        ? `program "${program.id}" has no buildable affiliate link (check the linked profile's tracking tag). It renders nothing on the live site.`
+        : "unknown program id — nothing renders on the live site."}
+    </aside>
+  ) : null
+}

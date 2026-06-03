@@ -24,6 +24,18 @@ export interface Product {
   buyNetwork: string | null;
 }
 
+/** A single-link affiliate program (e.g. make.com) resolved for a content CTA block. */
+export interface ProgramCta {
+  id: string;
+  name: string;
+  headline: string;
+  blurb: string | null;
+  ctaLabel: string;
+  logoUrl: string | null;
+  /** Built tagged affiliate link, or null if it can't be built (never show untagged). */
+  url: string | null;
+}
+
 export interface ContentSummary {
   id: string;
   type: ContentType;

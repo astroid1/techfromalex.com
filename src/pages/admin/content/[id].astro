@@ -10,8 +10,10 @@ import {
   writeRevision,
   purgeContent,
   productIdsInBody,
+  programIdsInBody,
 } from "@/lib/admin";
 import { assertReferences, ReferentialError } from "@/lib/validate";
+import { listActivePrograms } from "@/lib/programs";
 import { generateDraft } from "@/lib/ai/generate";
 import { aiEdit } from "@/lib/ai/edit";
 import { internalizeImage } from "@/lib/media";
@@ -153,8 +155,13 @@ if (Astro.request.method === "POST") {
           .bind(id)
           .all<any>()).results ?? [];
       for (const r of caps) profSet.add(r.affiliate_profile_id);
+      const programSet = new Set<string>(programIdsInBody(bodyMd));
       try {
-        await assertReferences(db, { productIds: [...pidSet], profileIds: [...profSet] });
+        await assertReferences(db, {
+          productIds: [...pidSet],
+          profileIds: [...profSet],
+          programIds: [...programSet],
+        });
         status = "published";
       } catch (e) {
         error = e instanceof ReferentialError ? e.message : (e as Error).message;
@@ -212,6 +219,7 @@ const revisions =
     .bind(id)
     .all<any>()).results ?? [];
 const cats = (await db.prepare("SELECT slug,name FROM categories ORDER BY position").all<any>()).results ?? [];
+const programOpts = await listActivePrograms(db);
 
 let prettyStructured = c.structured_json;
 try {
@@ -340,7 +348,11 @@ const statusLabel = String(c.status).replace("_", " ");
             <button type="button" data-insert="pros-cons" class="rounded-md border border-line-strong px-2 py-1 text-xs font-medium text-ink-soft transition hover:bg-surface-2">Pros / cons</button>
             <button type="button" data-insert="comparison" class="rounded-md border border-line-strong px-2 py-1 text-xs font-medium text-ink-soft transition hover:bg-surface-2">Comparison</button>
             <button type="button" data-insert="inline" class="rounded-md border border-line-strong px-2 py-1 text-xs font-medium text-ink-soft transition hover:bg-surface-2">Inline link</button>
+            <button type="button" data-insert="promo" class="rounded-md border border-line-strong px-2 py-1 text-xs font-medium text-ink-soft transition hover:bg-surface-2">Promo CTA</button>
           </div>
+          {programOpts.length > 0 && (
+            <p class="mt-1.5 text-xs text-muted">Promo program ids: {programOpts.map((p: any) => p.id).join(", ")}</p>
+          )}
           <textarea name="body_md" data-body rows="20" class={`${input} font-mono text-sm leading-relaxed`}>{c.body_md}</textarea>
         </div>
 
@@ -426,7 +438,8 @@ const statusLabel = String(c.status).replace("_", " ");
         "callout": "\n:::callout{type=\"info\" title=\"Heads up\"}\nYour note here.\n:::\n",
         "pros-cons": "\n:::pros-cons\npros:\n- A good thing\ncons:\n- A downside\n:::\n",
         "comparison": "\n:::comparison{ids=\"id1,id2\"}\n:::\n",
-        "inline": ":product[label]{id=\"PRODUCT_ID\"}"
+        "inline": ":product[label]{id=\"PRODUCT_ID\"}",
+        "promo": "\n::promo{id=\"PROGRAM_ID\"}\n"
       };
       var body = form.querySelector("[data-body]");
       var bar = form.querySelector("[data-insert-bar]");
