@@ -16,7 +16,6 @@ const { program, admin = false, compact = false } = Astro.props;
   program && program.url ? (
     compact ? (
       <aside class="not-prose my-6 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
-        <span class="text-[11px] font-semibold uppercase tracking-wide text-muted">Sponsored</span>
         <span class="min-w-0 flex-1 text-sm font-semibold text-ink">{program.headline}</span>
         <a
           href={program.url}
@@ -43,8 +42,7 @@ const { program, admin = false, compact = false } = Astro.props;
           </div>
         )}
         <div class="min-w-0 flex-1">
-          <p class="text-[11px] font-semibold uppercase tracking-wide text-muted">Sponsored</p>
-          <h4 class="mt-1 font-display text-xl font-extrabold tracking-tight text-ink">{program.headline}</h4>
+          <h4 class="font-display text-xl font-extrabold tracking-tight text-ink">{program.headline}</h4>
           {program.blurb && <p class="mt-1.5 leading-relaxed text-ink-soft">{program.blurb}</p>}
         </div>
         <a

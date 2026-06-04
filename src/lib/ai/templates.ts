@@ -171,8 +171,9 @@ const TEMPLATES: Record<
       "Write a clear, practical step-by-step how-to / walkthrough (1,000–1,800 words). Open with a short intro on what " +
       "the reader will accomplish and who it is for. Write each step as its own ## section with an action-oriented heading, " +
       "explaining exactly what to do and why. Mirror every step in structured.steps (name = the step heading, detail = a " +
-      "one or two sentence summary) so the site can show a steps overview and How-To rich results. Set difficulty and " +
-      "timeRequired when you can estimate them, and list any required tools, gear, or accounts in structured.tools. If a " +
+      "one or two sentence summary) so the site can show a steps overview and How-To rich results. Set difficulty (e.g. " +
+      "Beginner) and timeRequired in plain words (e.g. \"about 20 minutes\" — NEVER an ISO 8601 duration like PT20M) when " +
+      "you can estimate them, and list any required tools, gear, or accounts in structured.tools. If a " +
       "specific product from the PRODUCTS list genuinely helps, reference it with the product directives (never invent one).",
   },
 };
