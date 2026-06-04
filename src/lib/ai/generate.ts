@@ -3,7 +3,7 @@ import { writeRevision, productIdsInBody } from "@/lib/admin";
 import { findMissingProductIds } from "@/lib/validate";
 import { nowIso } from "@/lib/ids";
 import { generateStructured } from "./anthropic";
-import { buildSystem, buildUserText, getTemplate, naturalize, naturalizeDeep, type ProductFact } from "./templates";
+import { buildSystem, buildUserText, getTemplate, naturalize, naturalizeDeep, cleanGenerated, cleanGeneratedDeep, type ProductFact } from "./templates";
 import type { ContentType } from "@/lib/types";
 
 interface DraftOutput {
@@ -86,14 +86,28 @@ export async function generateDraft(env: Env, db: D1Database, contentId: string)
     ? [`Removed references to unknown products: ${missing.join(", ")}`]
     : [];
 
-  // Strip em dashes / AI-tell punctuation so the copy reads like a person wrote it.
+  // Em-dash naturalize always; the heavier creator-monetization scrub (codes / "link in the
+  // description" / bare URLs) runs ONLY when this draft was written FROM a source transcript —
+  // where echoed sponsor codes/links can appear. That keeps normal articles from being
+  // over-scrubbed (e.g. a coding how-to that says "use the code editor", or a deal post that
+  // legitimately discusses a "discount code"). cleanGenerated skips ::/::: directive lines.
+  const preCleanIds = source ? new Set(collectIds(data)) : new Set<string>();
+  const clean = source ? cleanGenerated : naturalize;
+  const cleanDeep = source ? cleanGeneratedDeep : naturalizeDeep;
   data.title = naturalize(data.title);
-  data.metaDescription = naturalize(data.metaDescription);
-  data.seoTitle = naturalize(data.seoTitle);
+  data.metaDescription = clean(data.metaDescription);
+  data.seoTitle = clean(data.seoTitle);
   data.heroAlt = naturalize(data.heroAlt);
-  data.bodyMarkdown = naturalize(data.bodyMarkdown);
-  data.faq = (data.faq ?? []).map((f) => ({ q: naturalize(f.q), a: naturalize(f.a) }));
-  data.structured = naturalizeDeep(data.structured);
+  data.bodyMarkdown = clean(data.bodyMarkdown);
+  data.faq = (data.faq ?? []).map((f) => ({ q: naturalize(f.q), a: clean(f.a) }));
+  data.structured = cleanDeep(data.structured);
+  // Safety net: cleaning must never drop a referenced product id (it skips directives). If it
+  // somehow did, surface it rather than ship a silently un-monetized article.
+  if (source) {
+    const after = new Set(collectIds(data));
+    const lost = [...preCleanIds].filter((id) => !after.has(id));
+    if (lost.length) warnings.push(`Cleaning removed product references: ${lost.join(", ")}`);
+  }
 
   const now = nowIso();
   const newStruct = {

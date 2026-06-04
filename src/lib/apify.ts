@@ -294,6 +294,78 @@ export function normalizeYoutubeUrl(input: string): string | null {
 }
 
 /**
+ * Strip the VIDEO CREATOR'S OWN monetization + channel cruft from a transcript before it
+ * is handed to the AI: sponsor reads, promo/discount codes, "link in the description",
+ * subscribe/like/Patreon/merch asks, spoken URLs, and caption artifacts. We monetize ONLY
+ * with our own tagged affiliate products, never the video's.
+ *
+ * CONSERVATIVE by design: every pattern is anchored to imperative/promo phrasing (never a
+ * bare noun), shape-based for codes (an ALL-CAPS token near %/checkout, never the word
+ * "code" alone), and PHRASE-scoped — it removes the matched phrase only up to the next
+ * clause break ([.,;!?]), never whole sentences/paragraphs. This keeps legitimate tutorial
+ * content ("subscribe to the API", "enter your license code", a factual "20% off",
+ * "the product description") intact. The author also reviews the cleaned text in the
+ * editable transcript textarea, and the prompt + PRODUCTS allow-list are further backstops.
+ */
+const CREATOR_CRUFT: RegExp[] = [
+  // Spoken / bare domains + "dot com slash" slugs (stripUrls only kills http(s)://).
+  /\b[\w-]+\s*(?:\.|\bdot\b)\s*(?:com|net|org|io|co|gg|me|tv|app|link)\b(?:\s*(?:\/|\bslash\b)\s*[\w/-]+)?/gi,
+  // Promo / discount / coupon codes — shape/context-anchored, NEVER the bare word "code",
+  // so "use the code editor", "error code 404", "license code" survive.
+  /\b(?:promo|coupon|discount)\s+code\b[^.,;!?]*/gi,
+  /\b[A-Z0-9]{4,15}\b[^.,;!?]{0,40}\b(?:at checkout|% off|percent off)\b[^.,;!?]*/g,
+  /\b\d{1,3}\s*%\s*off\b[^.,;!?]{0,30}\b(?:with|using)\b[^.,;!?]{0,20}[A-Z0-9]{4,15}/g,
+  // "link in the description / below / bio / pinned comment".
+  /\blinks?\b[^.,;!?]{0,25}\b(?:in\s+(?:the\s+)?(?:description|bio)|below|down\s+below|in\s+the\s+pinned\s+comment)\b[^.,;!?]*/gi,
+  /\b(?:description\s+below|in\s+the\s+description|pinned\s+comment)\b[^.,;!?]*/gi,
+  // Channel-growth asks (subscribe only when tied to channel context).
+  /\b(?:smash|hit|tap|click|mash|ring)\b[^.,;!?]{0,20}\b(?:like|subscribe|bell|thumbs\s*up|notification)\b[^.,;!?]*/gi,
+  /\b(?:like\s+(?:and|&)\s+subscribe|subscribe\s+for\s+more|don'?t\s+forget\s+to\s+subscribe|turn\s+on\s+notifications?|notification\s+bell)\b[^.,;!?]*/gi,
+  /\bsubscribe\b[^.,;!?]{0,20}\b(?:bell|notifications?|for\s+more\b|next\s+(?:one|video))\b[^.,;!?]*/gi,
+  /\bsubscribe\b[^.,;!?]{0,12}\b(?:to\s+)?(?:my|our|the)\s+channel\b[^.,;!?]*/gi,
+  /\b(?:comment\s+below\s+(?:and|if\s+you|with\s+your|what|to\s+let\s+me\s+know|to\s+tell)|let\s+me\s+know\s+(?:in\s+the\s+comments|below|down\s+below)|drop\s+a\s+comment|sound\s+off)\b[^.,;!?]*/gi,
+  // Creator funnels. Bare brand words (discord, merch) are common how-to TOPICS, so anchor
+  // those to a funnel cue; the rest are safe bare.
+  /\b(?:patreon|ko-?fi|buy\s+me\s+a\s+coffee|channel\s+membership|super\s+thanks|become\s+a\s+(?:member|patron))\b[^.,;!?]*/gi,
+  /\b(?:join|hop\s+in(?:to)?|check\s+out|support|link\s+to)\b[^.,;!?]{0,12}\b(?:my|our|the)\s+discord\b[^.,;!?]*/gi,
+  /\bdiscord\s+(?:server\s+)?(?:link|invite)\b[^.,;!?]*/gi,
+  /\b(?:my|our|the)\s+merch(?:andise)?\b[^.,;!?]*/gi,
+  /\bmerch(?:andise)?\s+(?:store|shop|link|drop|line)\b[^.,;!?]*/gi,
+  /\b(?:my|the)\s+second\s+channel\b[^.,;!?]*/gi,
+  // Creator affiliate-disclosure boilerplate (theirs, not ours).
+  /\baffiliate\s+links?\b[^.,;!?]*/gi,
+  /\bat\s+no\s+(?:extra|additional)\s+cost\s+to\s+you\b[^.,;!?]*/gi,
+  /\b(?:supports?|helps?)\b[^.,;!?]{0,15}\b(?:the|my)\s+channel\b[^.,;!?]*/gi,
+  // Giveaways / contests.
+  /\bgive\s?away\b[^.,;!?]*/gi,
+  /\b(?:enter|chance)\s+to\s+win\b[^.,;!?]*/gi,
+  // Sponsor reads + attribution + gifting/seeding.
+  /\b(?:sponsored\s+by|brought\s+to\s+you\s+by|made\s+possible\s+by)\b[^.,;!?]*/gi,
+  /\bthanks?\b[^.,;!?]{0,25}\bfor\s+sponsoring\b[^.,;!?]*/gi,
+  /\b(?:today'?s|the|our)\s+sponsor\b[^.,;!?]*/gi,
+  /\b(?:our\s+friends\s+at|shout\s?out\s+to|big\s+thanks\s+to|thanks\s+again\s+to)\b[^.,;!?]*/gi,
+  /\b(?:sent\s+(?:to\s+)?(?:me|us)\s+by|gifted\s+(?:to\s+)?(?:me|us)|this\s+(?:unit|one)\s+was\s+(?:sent|gifted)|review\s+(?:unit|sample|copy)\s+(?:provided|supplied|sent))\b[^.,;!?]*/gi,
+  // Social follow / newsletter.
+  /\bfollow\s+(?:me|us)\b[^.,;!?]{0,15}\b(?:on\s+)?(?:instagram|insta|twitter|tiktok|threads|facebook)\b[^.,;!?]*/gi,
+  /\b(?:sign\s+up\s+for|join)\b[^.,;!?]{0,10}\b(?:my|our)\s+(?:newsletter|discord)\b[^.,;!?]*/gi,
+  // Caption artifacts.
+  /\[(?:music|applause|laughter|sound\s*effects?|intro|outro|silence|cheering)\]/gi,
+  /\((?:upbeat|background|intro|outro|soft|dramatic)?\s*music\)/gi,
+];
+
+export function scrubTranscript(text: string): string {
+  const base = stripUrls(text || "");
+  if (!base) return "";
+  const cleaned = CREATOR_CRUFT.reduce((acc, re) => acc.replace(re, " "), base);
+  return cleaned
+    .replace(/\s+/g, " ")
+    .replace(/\s+([.,;!?])/g, "$1") // no space before punctuation
+    .replace(/([.,;!?])(?:\s*[.,;!?])+/g, "$1") // collapse runs left by excision
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+/**
  * Flatten the actor's transcript output into plain text. Defensive: the segments
  * may live under `data` / `transcript` / `captions` / `segments` as objects with a
  * `text` field, or the items may BE segments, or a single text blob.
@@ -330,7 +402,7 @@ export function mapTranscript(videoUrl: string, items: any[]): TranscriptResult 
       if (t) segs.push(t);
     }
   }
-  const transcript = segs.join(" ").replace(/\s+/g, " ").trim();
+  const transcript = scrubTranscript(segs.join(" "));
   if (segs.length === 0) {
     // Surface the actual shape so mapTranscript can be tuned after the first live run.
     console.log("[apify-yt] no transcript segments; raw item keys:", Object.keys(items?.[0] ?? {}).join(","));

@@ -183,6 +183,7 @@ const FORMAT_SPEC = `OUTPUT FORMAT. bodyMarkdown is GitHub-flavored markdown. Em
 RULES:
 - Use ONLY product ids from the PRODUCTS list below. Never invent an id, price, spec, rating, or retailer URL.
 - Never write a raw <a> tag or an http(s) link to a retailer. The site builds monetized links from the ids.
+- If a SOURCE TRANSCRIPT is provided it may carry the original video creator's own sponsor reads, discount/promo codes, "link in the description/below", subscribe/like/Patreon/merch asks, and their own affiliate links. NEVER reproduce any of these and never restate a promo or discount code. Monetize ONLY through the directives above using ids from the PRODUCTS list. Any product, brand, app, or service praised in the source that is NOT in the PRODUCTS list is likely the creator's own sponsor or affiliate: do not recommend it, link it, or build a section around it; mention it only neutrally if it is genuinely part of the topic.
 - Use the primary keyword naturally in the title, metaDescription, and first paragraph. One # H1 is the title; sections are ##.
 - metaDescription: 120–160 characters. seoTitle: <= 60 characters.
 - Write in first person, direct and opinionated, evidence-led, no hype or filler. You have actually used the gear.
@@ -231,7 +232,7 @@ export function buildUserText(
     productIds.length ? `Products to feature (ids): ${productIds.join(", ")}` : "No products selected.",
     instructions ? `\nAdditional instructions (follow these closely):\n${instructions}` : "",
     source
-      ? "\nSOURCE TRANSCRIPT (this article is based on the following video transcript — reorganize and rewrite it as a proper article in your own words and our voice, expand and structure it, and do NOT state anything the transcript does not support; never copy it verbatim):\n" +
+      ? "\nSOURCE TRANSCRIPT (this article is based on the following video transcript — reorganize and rewrite it as a proper article in your own words and our voice, expand and structure it, and do NOT state anything the transcript does not support; never copy it verbatim). Treat it as RAW MATERIAL ABOUT THE TOPIC ONLY: ignore and never echo the creator's own calls-to-action, sponsorships, promo/discount codes, brand plugs, or any \"link in the description / below\" references — those belong to their channel, not this article:\n" +
         source
       : "",
     "",
@@ -261,6 +262,63 @@ export function naturalizeDeep<T>(value: T): T {
   if (value && typeof value === "object") {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value)) out[k] = naturalizeDeep(v);
+    return out as T;
+  }
+  return value;
+}
+
+/**
+ * Belt-and-suspenders scrub of GENERATED prose: strip any creator-monetization residue the
+ * model may have echoed from a source transcript — bare http(s) URLs (the body must carry
+ * none per FORMAT_SPEC), promo/discount-code phrases, and "link in the description/below".
+ * Directive lines (starting with :: or :::) are SKIPPED so a product/program id or name is
+ * never clobbered; our links are rebuilt from ids, so this can never drop a tagged link.
+ */
+const OUTPUT_CRUFT: RegExp[] = [
+  /https?:\/\/\S+/gi,
+  /\b(?:promo|coupon|discount)\s+code\b[^.,;!?\n]*/gi,
+  /\b[A-Z0-9]{4,15}\b[^.,;!?\n]{0,40}\b(?:at checkout|% off|percent off)\b[^.,;!?\n]*/g,
+  /\blinks?\b[^.,;!?\n]{0,25}\b(?:in\s+(?:the\s+)?(?:description|bio)|pinned\s+comment)\b[^.,;!?\n]*/gi,
+  /\b(?:in\s+the\s+description|description\s+below|pinned\s+comment)\b[^.,;!?\n]*/gi,
+];
+
+/** Inline product link directive, e.g. :product[label]{id="x"} — kept verbatim by scrubOutput. */
+const INLINE_PRODUCT = /:product\[[^\]]*\]\{[^}]*\}/g;
+const scrubProse = (s: string): string => OUTPUT_CRUFT.reduce((acc, re) => acc.replace(re, " "), s);
+
+export function scrubOutput(s: string): string {
+  if (!s) return s;
+  return s
+    .split("\n")
+    .map((line) => {
+      if (/^\s*:::?/.test(line)) return line; // leaf/container directive line — leave intact
+      // Scrub only the prose BETWEEN inline :product[...]{id} directives, keeping each
+      // directive verbatim so an inline affiliate id can never be destroyed.
+      let out = "";
+      let last = 0;
+      for (const m of line.matchAll(INLINE_PRODUCT)) {
+        out += scrubProse(line.slice(last, m.index)) + m[0];
+        last = (m.index ?? 0) + m[0].length;
+      }
+      return out + scrubProse(line.slice(last));
+    })
+    .join("\n")
+    .replace(/[ \t]+([.,;!?])/g, "$1")
+    .replace(/[ \t]{2,}/g, " ");
+}
+
+/** Full clean of one generated string: scrub creator-monetization residue, then naturalize. */
+export function cleanGenerated(s: string): string {
+  return naturalize(scrubOutput(s));
+}
+
+/** cleanGenerated applied deeply over an arbitrary structured value. */
+export function cleanGeneratedDeep<T>(value: T): T {
+  if (typeof value === "string") return cleanGenerated(value) as unknown as T;
+  if (Array.isArray(value)) return value.map((v) => cleanGeneratedDeep(v)) as unknown as T;
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) out[k] = cleanGeneratedDeep(v);
     return out as T;
   }
   return value;

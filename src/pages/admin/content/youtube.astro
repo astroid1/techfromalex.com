@@ -3,7 +3,7 @@ import AdminLayout from "@/layouts/AdminLayout.astro";
 import { getDB, getEnv } from "@/lib/db";
 import { ulid, nowIso } from "@/lib/ids";
 import { slugify } from "@/lib/format";
-import { uniqueSlug } from "@/lib/admin";
+import { uniqueSlug, attachProductsToContent } from "@/lib/admin";
 import { runGenerationJob } from "@/lib/ai/generate";
 import { runYoutubeTranscript, mapTranscript, normalizeYoutubeUrl } from "@/lib/apify";
 import { CONTENT_TYPES, TYPE_CATEGORY } from "@/lib/content-meta";
@@ -54,6 +54,7 @@ if (Astro.request.method === "POST") {
   } else if (action === "create") {
     urlValue = String(f.get("video_url") ?? "").trim();
     transcript = String(f.get("transcript") ?? "").trim().slice(0, 80000);
+    const productIds = f.getAll("productIds").map(String).filter(Boolean);
     vals = {
       title: String(f.get("title") ?? "").trim(),
       type: String(f.get("type") ?? "howto"),
@@ -84,6 +85,7 @@ if (Astro.request.method === "POST") {
           )
           .bind(id, vals.type, "draft", slug, vals.title, null, vals.category || null, "alex", "", structured, null, null, now, now)
           .run();
+        await attachProductsToContent(db, id, productIds);
         Astro.locals.runtime.ctx.waitUntil(runGenerationJob(getEnv(Astro.locals), db, id));
         return Astro.redirect(`/admin/content/${id}`);
       } catch (e) {
@@ -95,6 +97,17 @@ if (Astro.request.method === "POST") {
 }
 
 const cats = (await db.prepare("SELECT slug,name FROM categories ORDER BY position").all<any>()).results ?? [];
+const products =
+  (
+    await db
+      .prepare(
+        `SELECT p.id, p.name, p.brand,
+                (SELECT ap.name FROM product_links pl JOIN affiliate_profiles ap ON ap.id = pl.affiliate_profile_id
+                 WHERE pl.product_id = p.id AND ap.is_active = 1 ORDER BY pl.is_primary DESC LIMIT 1) AS profile_name
+         FROM products p ORDER BY p.name`,
+      )
+      .all<{ id: string; name: string; brand: string | null; profile_name: string | null }>()
+  ).results ?? [];
 const input =
   "mt-1 w-full rounded-lg border border-line-strong bg-paper px-3 py-2 text-ink outline-none transition focus-visible:border-accent";
 const words = wordCount(transcript);
@@ -180,9 +193,43 @@ const words = wordCount(transcript);
             <textarea name="instructions" rows="2" class={input}>{vals.instructions}</textarea>
           </label>
           <label class="block">
-            <span class="text-sm font-medium">Source transcript <span class="font-normal text-muted">(editable — trim intros, sponsor reads, or off-topic parts)</span></span>
+            <span class="text-sm font-medium">Source transcript <span class="font-normal text-muted">(auto-cleaned of sponsor/promo/channel content — editable; trim anything left)</span></span>
             <textarea name="transcript" rows="10" class={`${input} font-mono text-xs leading-relaxed`}>{transcript}</textarea>
           </label>
+
+          <fieldset class="rounded-xl border border-line p-4">
+            <legend class="px-1 text-sm font-medium">Our affiliate products to feature</legend>
+            {
+              products.length ? (
+                <div class="mt-1">
+                  <input type="search" data-prod-search placeholder="Search products by name or brand…" autocomplete="off" class={input} />
+                  <div class="mt-3 max-h-56 overflow-y-auto rounded-lg border border-line">
+                    {products.map((p: any) => (
+                      <label class="flex items-center gap-2 border-b border-line px-3 py-2 text-sm last:border-0" data-prod data-search={`${p.name} ${p.brand ?? ""}`.toLowerCase()}>
+                        <input type="checkbox" name="productIds" value={p.id} class="shrink-0" />
+                        <span class="min-w-0 flex-1 truncate">
+                          {p.name}
+                          {p.brand ? <span class="text-muted"> · {p.brand}</span> : null}
+                        </span>
+                        {p.profile_name ? (
+                          <span class="shrink-0 text-xs text-muted">{p.profile_name}</span>
+                        ) : (
+                          <span class="shrink-0 text-xs" style="color:var(--danger)">no link</span>
+                        )}
+                      </label>
+                    ))}
+                  </div>
+                  <p class="mt-2 text-xs text-muted">
+                    <span data-prod-count>0</span> selected · the AI weaves these in with OUR tagged affiliate links
+                  </p>
+                </div>
+              ) : (
+                <p class="mt-2 text-sm text-muted">
+                  No products yet — <a href="/admin/products/import" class="text-accent-strong">import from Amazon</a> or add under Products. (You can also attach products later in the editor.)
+                </p>
+              )
+            }
+          </fieldset>
 
           <div class="flex items-center gap-3 pt-2">
             <button class="rounded-xl bg-accent px-5 py-2.5 font-semibold text-accent-contrast transition hover:brightness-105">
@@ -226,6 +273,22 @@ const words = wordCount(transcript);
         var s = overlay.querySelector("[data-overlay-sub]"); if (s) s.textContent = sub;
         overlay.hidden = false; overlay.style.display = "flex";
       }
+      // Product picker: search filter + selected count.
+      var search = document.querySelector("[data-prod-search]");
+      if (search) search.addEventListener("input", function () {
+        var q = search.value.toLowerCase().trim();
+        document.querySelectorAll("[data-prod]").forEach(function (row) {
+          row.style.display = !q || row.getAttribute("data-search").indexOf(q) !== -1 ? "" : "none";
+        });
+      });
+      var prodCount = document.querySelector("[data-prod-count]");
+      function syncProdCount() {
+        var checked = document.querySelectorAll('input[name="productIds"]:checked');
+        if (prodCount) prodCount.textContent = String(checked.length);
+      }
+      document.querySelectorAll('input[name="productIds"]').forEach(function (c) { c.addEventListener("change", syncProdCount); });
+      syncProdCount();
+
       var fetchForm = document.getElementById("yt-fetch");
       if (fetchForm) fetchForm.addEventListener("submit", function () {
         showOverlay("Fetching transcript…", "Scraping the video via Apify — this can take up to a minute.");

@@ -151,3 +151,52 @@ export function parseProductForm(form: FormData) {
     specs,
   };
 }
+
+/**
+ * Attach products to a content row: insert content_products (first = primary, rest =
+ * featured) each with its primary active affiliate profile, plus the union of those profiles
+ * into content_affiliate_profiles. Shared by the new-content and "Write from YouTube" flows
+ * so both wire OUR affiliate profiles identically. No-op for an empty list. The content row
+ * must already exist (FK).
+ */
+export async function attachProductsToContent(
+  db: D1Database,
+  contentId: string,
+  productIds: string[],
+): Promise<void> {
+  const ids = productIds.filter(Boolean);
+  if (!ids.length) return;
+  const ph = ids.map(() => "?").join(",");
+  const links =
+    (
+      await db
+        .prepare(
+          `SELECT pl.product_id, pl.affiliate_profile_id FROM product_links pl
+           JOIN affiliate_profiles ap ON ap.id = pl.affiliate_profile_id
+           WHERE pl.product_id IN (${ph}) AND ap.is_active = 1
+           ORDER BY pl.is_primary DESC`,
+        )
+        .bind(...ids)
+        .all<{ product_id: string; affiliate_profile_id: string }>()
+    ).results ?? [];
+  const profByProduct = new Map<string, string>();
+  const profileSet = new Set<string>();
+  for (const r of links) {
+    if (!profByProduct.has(r.product_id)) profByProduct.set(r.product_id, r.affiliate_profile_id);
+    profileSet.add(r.affiliate_profile_id);
+  }
+  for (let i = 0; i < ids.length; i++) {
+    await db
+      .prepare(
+        `INSERT OR IGNORE INTO content_products (content_id,product_id,role,position,affiliate_profile_id) VALUES (?,?,?,?,?)`,
+      )
+      .bind(contentId, ids[i], i === 0 ? "primary" : "featured", i, profByProduct.get(ids[i]) ?? null)
+      .run();
+  }
+  for (const pid of profileSet) {
+    await db
+      .prepare(`INSERT OR IGNORE INTO content_affiliate_profiles (content_id,affiliate_profile_id) VALUES (?,?)`)
+      .bind(contentId, pid)
+      .run();
+  }
+}

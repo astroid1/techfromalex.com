@@ -3,7 +3,7 @@ import AdminLayout from "@/layouts/AdminLayout.astro";
 import { getDB, getEnv } from "@/lib/db";
 import { ulid, nowIso } from "@/lib/ids";
 import { slugify } from "@/lib/format";
-import { uniqueSlug } from "@/lib/admin";
+import { uniqueSlug, attachProductsToContent } from "@/lib/admin";
 import { runGenerationJob } from "@/lib/ai/generate";
 import { CONTENT_TYPES, TYPE_CATEGORY } from "@/lib/content-meta";
 
@@ -41,29 +41,6 @@ if (Astro.request.method === "POST") {
 
   if (!title) error = "A title or topic is required.";
   else {
-    // Derive each product's primary affiliate profile + the union of profiles used.
-    const profByProduct = new Map<string, string>();
-    const profileSet = new Set<string>();
-    if (productIds.length) {
-      const ph = productIds.map(() => "?").join(",");
-      const links =
-        (
-          await db
-            .prepare(
-              `SELECT pl.product_id, pl.affiliate_profile_id FROM product_links pl
-               JOIN affiliate_profiles ap ON ap.id = pl.affiliate_profile_id
-               WHERE pl.product_id IN (${ph}) AND ap.is_active = 1
-               ORDER BY pl.is_primary DESC`,
-            )
-            .bind(...productIds)
-            .all<{ product_id: string; affiliate_profile_id: string }>()
-        ).results ?? [];
-      for (const r of links) {
-        if (!profByProduct.has(r.product_id)) profByProduct.set(r.product_id, r.affiliate_profile_id);
-        profileSet.add(r.affiliate_profile_id);
-      }
-    }
-
     const id = ulid();
     const slug = await uniqueSlug(db, slugify(title));
     const now = nowIso();
@@ -81,20 +58,7 @@ if (Astro.request.method === "POST") {
         )
         .bind(id, type, "draft", slug, title, null, category, "alex", "", structured, null, null, now, now)
         .run();
-      for (let i = 0; i < productIds.length; i++) {
-        await db
-          .prepare(
-            `INSERT OR IGNORE INTO content_products (content_id,product_id,role,position,affiliate_profile_id) VALUES (?,?,?,?,?)`,
-          )
-          .bind(id, productIds[i], i === 0 ? "primary" : "featured", i, profByProduct.get(productIds[i]) ?? null)
-          .run();
-      }
-      for (const pid of profileSet) {
-        await db
-          .prepare(`INSERT OR IGNORE INTO content_affiliate_profiles (content_id,affiliate_profile_id) VALUES (?,?)`)
-          .bind(id, pid)
-          .run();
-      }
+      await attachProductsToContent(db, id, productIds);
       // Generate in the background so the page returns immediately. The draft is
       // already persisted (status 'draft'); generation fills it in and marks aiStatus done.
       if (isGenerate) {
