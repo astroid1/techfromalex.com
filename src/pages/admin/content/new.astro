@@ -6,6 +6,7 @@ import { slugify } from "@/lib/format";
 import { uniqueSlug, attachProductsToContent } from "@/lib/admin";
 import { runGenerationJob } from "@/lib/ai/generate";
 import { CONTENT_TYPES, TYPE_CATEGORY } from "@/lib/content-meta";
+import { listActivePrograms } from "@/lib/programs";
 
 export const prerender = false;
 const db = getDB(Astro.locals);
@@ -23,6 +24,7 @@ const products =
       .all<{ id: string; name: string; brand: string | null; profile_name: string | null }>()
   ).results ?? [];
 const cats = (await db.prepare("SELECT slug,name FROM categories ORDER BY position").all<any>()).results ?? [];
+const programOpts = await listActivePrograms(db);
 
 const types = CONTENT_TYPES;
 const typeCategory = TYPE_CATEGORY;
@@ -38,6 +40,7 @@ if (Astro.request.method === "POST") {
   const brief = String(f.get("brief") ?? "").trim();
   const instructions = String(f.get("instructions") ?? "").trim();
   const productIds = f.getAll("productIds").map(String).filter(Boolean);
+  const programIds = f.getAll("programIds").map(String).filter(Boolean);
 
   if (!title) error = "A title or topic is required.";
   else {
@@ -48,6 +51,7 @@ if (Astro.request.method === "POST") {
       primaryKeyword: keyword,
       brief,
       instructions,
+      ...(programIds.length ? { programIds } : {}),
       ...(isGenerate ? { aiStatus: "generating" } : {}),
     });
     try {
@@ -153,6 +157,27 @@ const input =
         ) : (
           <p class="mt-2 text-sm text-muted">
             No products yet — <a href="/admin/products/import" class="text-accent-strong">import from Amazon</a> or add under Products.
+          </p>
+        )
+      }
+    </fieldset>
+
+    <fieldset class="rounded-xl border border-line p-4">
+      <legend class="px-1 text-sm font-medium">Promote a service / program (optional)</legend>
+      {
+        programOpts.length ? (
+          <div class="mt-1 space-y-1.5">
+            {programOpts.map((pg: any) => (
+              <label class="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="programIds" value={pg.id} class="shrink-0" />
+                <span>{pg.name}</span>
+              </label>
+            ))}
+            <p class="mt-1 text-xs text-muted">The AI writes a short section about each selected service and adds a tagged ::promo CTA.</p>
+          </div>
+        ) : (
+          <p class="mt-2 text-sm text-muted">
+            No programs yet — <a href="/admin/programs/new" class="text-accent-strong">add one</a> (e.g. make.com).
           </p>
         )
       }

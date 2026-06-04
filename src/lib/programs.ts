@@ -1,5 +1,6 @@
 import { buildAffiliateUrl } from "./affiliate-link";
 import type { ProgramCta } from "./types";
+import type { ProgramFact } from "./ai/templates";
 
 /**
  * Single-link affiliate "programs" (e.g. make.com). A program pairs an affiliate
@@ -98,4 +99,22 @@ export async function listActivePrograms(
     .prepare("SELECT id, name FROM programs WHERE is_active = 1 ORDER BY name")
     .all<{ id: string; name: string }>();
   return res.results ?? [];
+}
+
+/** Facts for the AI writer: the selected active programs it may promote via ::promo. */
+export async function getProgramFacts(db: D1Database, ids: string[]): Promise<ProgramFact[]> {
+  const uniq = [...new Set(ids.filter(Boolean))];
+  if (!uniq.length) return [];
+  const ph = uniq.map(() => "?").join(",");
+  const res = await db
+    .prepare(`SELECT id, name, headline, blurb, cta_label FROM programs WHERE id IN (${ph}) AND is_active = 1`)
+    .bind(...uniq)
+    .all<{ id: string; name: string; headline: string | null; blurb: string | null; cta_label: string }>();
+  return (res.results ?? []).map((r) => ({
+    id: r.id,
+    name: r.name,
+    headline: r.headline?.trim() || r.name,
+    blurb: r.blurb,
+    ctaLabel: r.cta_label,
+  }));
 }

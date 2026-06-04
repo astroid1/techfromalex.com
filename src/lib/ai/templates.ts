@@ -15,6 +15,15 @@ export interface ProductFact {
   specs: Record<string, string>;
 }
 
+/** A single-link affiliate program (e.g. make.com) the article may promote via a ::promo CTA. */
+export interface ProgramFact {
+  id: string;
+  name: string;
+  headline: string;
+  blurb: string | null;
+  ctaLabel: string;
+}
+
 const faqSchema = {
   type: "array",
   items: {
@@ -183,7 +192,7 @@ const FORMAT_SPEC = `OUTPUT FORMAT. bodyMarkdown is GitHub-flavored markdown. Em
 RULES:
 - Use ONLY product ids from the PRODUCTS list below. Never invent an id, price, spec, rating, or retailer URL.
 - Never write a raw <a> tag or an http(s) link to a retailer. The site builds monetized links from the ids.
-- If a SOURCE TRANSCRIPT is provided it may carry the original video creator's own sponsor reads, discount/promo codes, "link in the description/below", subscribe/like/Patreon/merch asks, and their own affiliate links. NEVER reproduce any of these and never restate a promo or discount code. Monetize ONLY through the directives above using ids from the PRODUCTS list. Any product, brand, app, or service praised in the source that is NOT in the PRODUCTS list is likely the creator's own sponsor or affiliate: do not recommend it, link it, or build a section around it; mention it only neutrally if it is genuinely part of the topic.
+- If a SOURCE TRANSCRIPT is provided it may carry the original video creator's own sponsor reads, discount/promo codes, "link in the description/below", subscribe/like/Patreon/merch asks, and their own affiliate links. NEVER reproduce any of these and never restate a promo or discount code. Monetize ONLY through the directives above (and the ::promo block) using ids from the PRODUCTS or PROGRAMS lists. Any product, brand, app, or service praised in the source that is NOT in the PRODUCTS or PROGRAMS lists is likely the creator's own sponsor or affiliate: do not recommend it, link it, or build a section around it; mention it only neutrally if it is genuinely part of the topic.
 - Use the primary keyword naturally in the title, metaDescription, and first paragraph. One # H1 is the title; sections are ##.
 - metaDescription: 120–160 characters. seoTitle: <= 60 characters.
 - Write in first person, direct and opinionated, evidence-led, no hype or filler. You have actually used the gear.
@@ -192,10 +201,14 @@ RULES:
 - pros-cons: always include several real items under BOTH pros and cons, with a blank line before the "cons:" label.
 - A site-wide FTC affiliate disclosure is rendered automatically, so do not write your own.`;
 
-export function buildSystem(type: ContentType, products: ProductFact[]): SystemBlock[] {
+export function buildSystem(
+  type: ContentType,
+  products: ProductFact[],
+  programs: ProgramFact[] = [],
+): SystemBlock[] {
   const tmpl = TEMPLATES[type];
   const sorted = [...products].sort((a, b) => a.id.localeCompare(b.id));
-  return [
+  const blocks: SystemBlock[] = [
     {
       type: "text",
       text:
@@ -215,6 +228,19 @@ export function buildSystem(type: ContentType, products: ProductFact[]): SystemB
       cache_control: { type: "ephemeral" },
     },
   ];
+  if (programs.length) {
+    blocks.push({
+      type: "text",
+      text:
+        "PROGRAMS to feature in this article — single-link affiliate SERVICES (e.g. an app or platform). For EACH, " +
+        "write a short, genuine section about the service (drawing on the source where relevant) and place " +
+        '::promo{id="PROGRAM_ID"} on its own line where a call-to-action fits. Use ONLY these program ids. The site ' +
+        "renders the tagged signup link and a styled CTA from the id, so do NOT write your own link, button text, or " +
+        "signup URL for them:\n" +
+        JSON.stringify(programs, null, 2),
+    });
+  }
+  return blocks;
 }
 
 export function buildUserText(

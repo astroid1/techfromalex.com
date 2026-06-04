@@ -60,7 +60,7 @@ const heroAbs = content.heroImageUrl
   : undefined;
 const catName = content.category ? CATEGORY_NAMES[content.category] : null;
 const featured = s.productId ? (products.get(s.productId) ?? null) : null;
-const hasAffiliate = products.size > 0;
+const hasAffiliate = products.size > 0 || programs.size > 0;
 
 const bc = [
   { name: "Home", href: "/" },

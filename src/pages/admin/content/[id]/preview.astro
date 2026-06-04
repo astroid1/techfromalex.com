@@ -43,7 +43,7 @@ const content = {
   dealPriceCents: c.deal_price_cents,
   dealExpiresAt: c.deal_expires_at,
 } as any;
-const hasAffiliate = products.size > 0;
+const hasAffiliate = products.size > 0 || programs.size > 0;
 ---
 
 <Base title={`Preview: ${c.title}`} noindex>

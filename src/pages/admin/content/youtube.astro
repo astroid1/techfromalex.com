@@ -7,6 +7,7 @@ import { uniqueSlug, attachProductsToContent } from "@/lib/admin";
 import { runGenerationJob } from "@/lib/ai/generate";
 import { runYoutubeTranscript, mapTranscript, normalizeYoutubeUrl } from "@/lib/apify";
 import { CONTENT_TYPES, TYPE_CATEGORY } from "@/lib/content-meta";
+import { listActivePrograms } from "@/lib/programs";
 
 export const prerender = false;
 const db = getDB(Astro.locals);
@@ -55,6 +56,7 @@ if (Astro.request.method === "POST") {
     urlValue = String(f.get("video_url") ?? "").trim();
     transcript = String(f.get("transcript") ?? "").trim().slice(0, 80000);
     const productIds = f.getAll("productIds").map(String).filter(Boolean);
+    const programIds = f.getAll("programIds").map(String).filter(Boolean);
     vals = {
       title: String(f.get("title") ?? "").trim(),
       type: String(f.get("type") ?? "howto"),
@@ -75,6 +77,7 @@ if (Astro.request.method === "POST") {
         instructions: vals.instructions,
         sourceUrl: urlValue,
         sourceTranscript: transcript,
+        ...(programIds.length ? { programIds } : {}),
         aiStatus: "generating",
       });
       try {
@@ -108,6 +111,7 @@ const products =
       )
       .all<{ id: string; name: string; brand: string | null; profile_name: string | null }>()
   ).results ?? [];
+const programOpts = await listActivePrograms(db);
 const input =
   "mt-1 w-full rounded-lg border border-line-strong bg-paper px-3 py-2 text-ink outline-none transition focus-visible:border-accent";
 const words = wordCount(transcript);
@@ -226,6 +230,29 @@ const words = wordCount(transcript);
               ) : (
                 <p class="mt-2 text-sm text-muted">
                   No products yet — <a href="/admin/products/import" class="text-accent-strong">import from Amazon</a> or add under Products. (You can also attach products later in the editor.)
+                </p>
+              )
+            }
+          </fieldset>
+
+          <fieldset class="rounded-xl border border-line p-4">
+            <legend class="px-1 text-sm font-medium">Promote a service / program (optional)</legend>
+            {
+              programOpts.length ? (
+                <div class="mt-1 space-y-1.5">
+                  {programOpts.map((pg: any) => (
+                    <label class="flex items-center gap-2 text-sm">
+                      <input type="checkbox" name="programIds" value={pg.id} class="shrink-0" />
+                      <span>{pg.name}</span>
+                    </label>
+                  ))}
+                  <p class="mt-1 text-xs text-muted">
+                    The AI writes a short section about each selected service and adds a tagged ::promo CTA — e.g. promote make.com from a "learn make.com" video.
+                  </p>
+                </div>
+              ) : (
+                <p class="mt-2 text-sm text-muted">
+                  No programs yet — <a href="/admin/programs/new" class="text-accent-strong">add one</a> (e.g. make.com).
                 </p>
               )
             }

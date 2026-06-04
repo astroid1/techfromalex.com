@@ -19,14 +19,20 @@ export function stripPlainText(md: string): string {
 function directiveId(attrs: string): string | null {
   const shorthand = attrs.match(/(?:^|\s)#([A-Za-z0-9_-]+)/);
   if (shorthand) return shorthand[1];
-  const m = attrs.match(/\bid=(?:"([^"]+)"|'([^']+)'|([^\s}]+))/);
-  return m ? (m[1] ?? m[2] ?? m[3] ?? null) : null;
+  const m = attrs.match(/\bid=(?:"([^"]*)"|'([^']*)'|([^\s}"']+))/);
+  if (!m) return null;
+  const id = m[1] ?? m[2] ?? m[3] ?? ""; // empty quoted (id="") => no usable id, like remark
+  return id || null;
 }
 
-/** Program ids referenced by ::promo{...} CTA blocks (any directive id syntax). */
+/**
+ * Program ids referenced by ::promo{...} CTA blocks. Anchored to a standalone line so it
+ * matches only what render-body actually renders (a ::promo leaf directive on its own line),
+ * not a ::promo literal that happens to sit inside another directive's attribute.
+ */
 export function programIdsInBody(md: string): string[] {
   const ids: string[] = [];
-  for (const m of md.matchAll(/::promo\{([^}]*)\}/g)) {
+  for (const m of md.matchAll(/^\s*::promo\{([^}]*)\}\s*$/gm)) {
     const id = directiveId(m[1]);
     if (id) ids.push(id);
   }

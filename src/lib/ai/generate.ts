@@ -1,6 +1,7 @@
 import { getProducts, getContentProductIds } from "@/lib/content";
-import { writeRevision, productIdsInBody } from "@/lib/admin";
-import { findMissingProductIds } from "@/lib/validate";
+import { getProgramFacts } from "@/lib/programs";
+import { writeRevision, productIdsInBody, programIdsInBody } from "@/lib/admin";
+import { findMissingProductIds, findMissingProgramIds } from "@/lib/validate";
 import { nowIso } from "@/lib/ids";
 import { generateStructured } from "./anthropic";
 import { buildSystem, buildUserText, getTemplate, naturalize, naturalizeDeep, cleanGenerated, cleanGeneratedDeep, type ProductFact } from "./templates";
@@ -67,24 +68,31 @@ export async function generateDraft(env: Env, db: D1Database, contentId: string)
     specs: p.specs,
   }));
 
+  const programIds: string[] = Array.isArray(inStruct.programIds) ? inStruct.programIds.map(String) : [];
+  const programFacts = await getProgramFacts(db, programIds);
+
   const tmpl = getTemplate(c.type);
-  const system = buildSystem(c.type, facts);
+  const system = buildSystem(c.type, facts, programFacts);
   let userText = buildUserText(c.title, keyword, brief, productIds, instructions, source);
 
   let { data } = await generateStructured<DraftOutput>({ apiKey, system, userText, schema: tmpl.schema });
 
-  // Referential guard + one corrective re-roll.
+  // Referential guard + one corrective re-roll (products AND ::promo program ids).
   let missing = await findMissingProductIds(db, collectIds(data));
-  if (missing.length) {
-    userText += `\n\nCORRECTION: Use ONLY these product ids: ${productIds.join(", ") || "(none)"}. ` +
-      `You referenced unknown ids: ${missing.join(", ")}. Do not reference any product not in that list.`;
+  let missingPrograms = await findMissingProgramIds(db, programIdsInBody(data.bodyMarkdown));
+  if (missing.length || missingPrograms.length) {
+    userText +=
+      `\n\nCORRECTION: Use ONLY these product ids: ${productIds.join(", ") || "(none)"} and these program ids: ${programIds.join(", ") || "(none)"}. ` +
+      `You referenced unknown ids: ${[...missing, ...missingPrograms].join(", ")}. Do not reference any product or program not in those lists.`;
     ({ data } = await generateStructured<DraftOutput>({ apiKey, system, userText, schema: tmpl.schema }));
     missing = await findMissingProductIds(db, collectIds(data));
+    missingPrograms = await findMissingProgramIds(db, programIdsInBody(data.bodyMarkdown));
   }
 
-  const warnings = missing.length
-    ? [`Removed references to unknown products: ${missing.join(", ")}`]
-    : [];
+  const warnings = [
+    ...(missing.length ? [`Removed references to unknown products: ${missing.join(", ")}`] : []),
+    ...(missingPrograms.length ? [`Removed references to unknown programs: ${missingPrograms.join(", ")}`] : []),
+  ];
 
   // Em-dash naturalize always; the heavier creator-monetization scrub (codes / "link in the
   // description" / bare URLs) runs ONLY when this draft was written FROM a source transcript —

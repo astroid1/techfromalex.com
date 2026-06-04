@@ -1,6 +1,7 @@
 import { getProducts, getContentProductIds } from "@/lib/content";
-import { productIdsInBody } from "@/lib/admin";
-import { findMissingProductIds } from "@/lib/validate";
+import { getProgramFacts } from "@/lib/programs";
+import { productIdsInBody, programIdsInBody } from "@/lib/admin";
+import { findMissingProductIds, findMissingProgramIds } from "@/lib/validate";
 import { generateStructured } from "./anthropic";
 import { buildSystem, getTemplate, naturalize, naturalizeDeep, type ProductFact } from "./templates";
 import type { ContentType } from "@/lib/types";
@@ -80,7 +81,14 @@ export async function aiEdit(
   }));
 
   const tmpl = getTemplate(c.type);
-  const system = buildSystem(c.type, facts);
+  let programIds: string[] = [];
+  try {
+    const cs = JSON.parse(current.structuredJson || "{}");
+    if (Array.isArray(cs.programIds)) programIds = cs.programIds.map(String);
+  } catch {
+    /* ignore malformed structured */
+  }
+  const system = buildSystem(c.type, facts, await getProgramFacts(db, programIds));
 
   const curStructRaw = current.structuredJson || "{}";
   let userText = [
@@ -109,16 +117,19 @@ export async function aiEdit(
   let { data } = await generateStructured<DraftOutput>({ apiKey, system, userText, schema: tmpl.schema });
 
   let missing = await findMissingProductIds(db, collectIds(data));
-  if (missing.length) {
+  let missingPrograms = await findMissingProgramIds(db, programIdsInBody(data.bodyMarkdown));
+  if (missing.length || missingPrograms.length) {
     userText +=
-      `\n\nCORRECTION: Use ONLY these product ids: ${productIds.join(", ") || "(none)"}. ` +
-      `You referenced unknown ids: ${missing.join(", ")}. Do not reference any product not in that list.`;
+      `\n\nCORRECTION: Use ONLY these product ids: ${productIds.join(", ") || "(none)"} and these program ids: ${programIds.join(", ") || "(none)"}. ` +
+      `You referenced unknown ids: ${[...missing, ...missingPrograms].join(", ")}. Do not reference any product or program not in those lists.`;
     ({ data } = await generateStructured<DraftOutput>({ apiKey, system, userText, schema: tmpl.schema }));
     missing = await findMissingProductIds(db, collectIds(data));
+    missingPrograms = await findMissingProgramIds(db, programIdsInBody(data.bodyMarkdown));
   }
-  const warnings = missing.length
-    ? [`Removed references to unknown products: ${missing.join(", ")}`]
-    : [];
+  const warnings = [
+    ...(missing.length ? [`Removed references to unknown products: ${missing.join(", ")}`] : []),
+    ...(missingPrograms.length ? [`Removed references to unknown programs: ${missingPrograms.join(", ")}`] : []),
+  ];
 
   // Strip em dashes / AI-tell punctuation so the copy reads like a person wrote it.
   data.title = naturalize(data.title);
