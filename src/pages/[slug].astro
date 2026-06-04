@@ -6,6 +6,7 @@ import SmartImage from "@/components/ui/SmartImage.astro";
 import CategoryBadge from "@/components/ui/CategoryBadge.astro";
 import AffiliateDisclosure from "@/components/affiliate/AffiliateDisclosure.astro";
 import StickyBuyBar from "@/components/affiliate/StickyBuyBar.astro";
+import CrossSell from "@/components/affiliate/CrossSell.astro";
 import ProseRenderer from "@/components/content/ProseRenderer.astro";
 import Faq from "@/components/content/Faq.astro";
 import ProgramCta from "@/components/content/ProgramCta.astro";
@@ -22,6 +23,7 @@ import {
   getAuthor,
   getContentBySlug,
   getContentProductIds,
+  getCrossSellProducts,
   getProducts,
   getRelated,
 } from "@/lib/content";
@@ -62,8 +64,16 @@ if (Array.isArray(s.picks)) {
 }
 
 const { segments, toc } = await renderBody(content.bodyMd, products);
+const cardIds = new Set(
+  segments.flatMap((seg) => (seg.kind === "embed" && seg.name === "product-card" ? [String((seg.props as any).id)] : [])),
+);
 const author = await getAuthor(db, content.authorId);
 const related = await getRelated(db, content, 3);
+const crossSell = await getCrossSellProducts(db, {
+  categories: [...products.values()].map((p) => p.category).filter((c): c is string => Boolean(c)),
+  excludeIds: productIds,
+  limit: 4,
+});
 
 const origin = (Astro.site ?? new URL(Astro.url.origin)).origin;
 const heroAbs = content.heroImageUrl
@@ -170,7 +180,7 @@ if (content.type === "howto") {
         )}
         {topPrograms.map((pg) => <ProgramCta program={pg} compact />)}
         {content.type === "review" && <ReviewIntro content={content} products={products} />}
-        {content.type === "roundup" && <RoundupIntro content={content} products={products} />}
+        {content.type === "roundup" && <RoundupIntro content={content} products={products} cardIds={cardIds} />}
         {content.type === "comparison" && <ComparisonIntro content={content} products={products} />}
         {content.type === "news_deal" && <NewsIntro content={content} products={products} />}
         {content.type === "howto" && <HowtoIntro content={content} />}
@@ -188,6 +198,8 @@ if (content.type === "howto") {
         )
       }
     </div>
+
+    <CrossSell products={crossSell} />
 
     {
       related.length > 0 && (

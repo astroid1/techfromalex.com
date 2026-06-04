@@ -10,8 +10,10 @@ interface Props {
   product?: Product | null;
   award?: string | null;
   bestFor?: string | null;
+  /** Anchor id so a roundup persona chip can jump to this card. */
+  anchorId?: string | null;
 }
-const { product, award, bestFor } = Astro.props;
+const { product, award, bestFor, anchorId } = Astro.props;
 const price = product ? formatPrice(product.priceCents, product.currency) : null;
 const checked = formatMonthYear(product?.priceObservedAt);
 const priceNote = checked ? `approx. · checked ${checked}` : "approx.";
@@ -20,7 +22,7 @@ const others = product?.otherBuyLinks ?? [];
 
 {
   product && (
-    <aside class="not-prose glass glow-hover my-8 overflow-hidden rounded-2xl shadow-[var(--shadow-md)]">
+    <aside id={anchorId ?? undefined} class="not-prose glass glow-hover my-8 scroll-mt-24 overflow-hidden rounded-2xl shadow-[var(--shadow-md)]">
       {award && (
         <div class="bg-accent px-4 py-1.5 text-center text-xs font-bold uppercase tracking-widest text-accent-contrast">
           {award}

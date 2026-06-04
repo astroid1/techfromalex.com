@@ -135,6 +135,44 @@ export async function getProducts(
   return out;
 }
 
+/** Cross-sell: other tagged products sharing a category with the on-page ones. */
+export async function getCrossSellProducts(
+  db: D1Database,
+  opts: { categories: string[]; excludeIds: string[]; limit?: number },
+): Promise<Product[]> {
+  const cats = [...new Set(opts.categories.filter(Boolean))];
+  if (cats.length === 0) return [];
+  const exclude = [...new Set(opts.excludeIds.filter(Boolean))];
+  const limit = opts.limit ?? 4;
+  const catPh = cats.map(() => "?").join(",");
+  const exClause = exclude.length ? ` AND id NOT IN (${exclude.map(() => "?").join(",")})` : "";
+  // Rank only products that HAVE an active affiliate link, and over-fetch (LIMIT is
+  // applied before the post-build tag check, and an active link can still carry an
+  // empty tag). We then keep tagged products and slice — so a tagged product is never
+  // silently dropped just because a higher-rated untagged one took its slot.
+  const idRes = await db
+    .prepare(
+      `SELECT id FROM products
+       WHERE category IN (${catPh})${exClause}
+         AND EXISTS (
+           SELECT 1 FROM product_links pl
+           JOIN affiliate_profiles ap ON ap.id = pl.affiliate_profile_id
+           WHERE pl.product_id = products.id AND ap.is_active = 1
+         )
+       ORDER BY rating DESC
+       LIMIT ?`,
+    )
+    .bind(...cats, ...exclude, limit * 4)
+    .all<{ id: string }>();
+  const ids = (idRes.results ?? []).map((r) => r.id);
+  const map = await getProducts(db, ids);
+  // Preserve rating order; keep only products with a built (tagged) link, then trim.
+  return ids
+    .map((id) => map.get(id))
+    .filter((p): p is Product => Boolean(p && p.buyUrl))
+    .slice(0, limit);
+}
+
 /* ----------------------------------------------------------------- content */
 
 interface ContentRow {

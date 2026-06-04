@@ -4,6 +4,7 @@ import Container from "@/components/layout/Container.astro";
 import SmartImage from "@/components/ui/SmartImage.astro";
 import CategoryBadge from "@/components/ui/CategoryBadge.astro";
 import AffiliateDisclosure from "@/components/affiliate/AffiliateDisclosure.astro";
+import CrossSell from "@/components/affiliate/CrossSell.astro";
 import ProseRenderer from "@/components/content/ProseRenderer.astro";
 import Faq from "@/components/content/Faq.astro";
 import ProgramCta from "@/components/content/ProgramCta.astro";
@@ -13,7 +14,7 @@ import ComparisonIntro from "@/components/templates/ComparisonIntro.astro";
 import NewsIntro from "@/components/templates/NewsIntro.astro";
 import HowtoIntro from "@/components/templates/HowtoIntro.astro";
 import { getDB } from "@/lib/db";
-import { getProducts } from "@/lib/content";
+import { getProducts, getCrossSellProducts } from "@/lib/content";
 import { renderBody } from "@/lib/render-body";
 import { productIdsInBody, programIdsInBody } from "@/lib/admin";
 import { getPrograms } from "@/lib/programs";
@@ -46,6 +47,14 @@ if (Array.isArray(structured.picks)) {
   }
 }
 const { segments } = await renderBody(c.body_md || "", products);
+const cardIds = new Set(
+  segments.flatMap((seg) => (seg.kind === "embed" && seg.name === "product-card" ? [String((seg.props as any).id)] : [])),
+);
+const crossSell = await getCrossSellProducts(db, {
+  categories: [...products.values()].map((p) => p.category).filter((cat): cat is string => Boolean(cat)),
+  excludeIds: [...idSet],
+  limit: 4,
+});
 
 const content = {
   structured,
@@ -77,12 +86,13 @@ const hasAffiliate = products.size > 0 || programs.size > 0;
       {hasAffiliate && <div class="mb-8"><AffiliateDisclosure /></div>}
       {topPrograms.map((pg) => <ProgramCta program={pg} compact admin />)}
       {c.type === "review" && <ReviewIntro content={content} products={products} />}
-      {c.type === "roundup" && <RoundupIntro content={content} products={products} />}
+      {c.type === "roundup" && <RoundupIntro content={content} products={products} cardIds={cardIds} />}
       {c.type === "comparison" && <ComparisonIntro content={content} products={products} />}
       {c.type === "news_deal" && <NewsIntro content={content} products={products} />}
       {c.type === "howto" && <HowtoIntro content={content} />}
       <ProseRenderer segments={segments} products={products} programs={programs} awards={awards} admin />
       <Faq items={Array.isArray(structured.faq) ? structured.faq : []} />
+      <CrossSell products={crossSell} />
     </div>
   </Container>
 </Base>

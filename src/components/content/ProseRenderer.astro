@@ -17,6 +17,8 @@ interface Props {
   admin?: boolean;
 }
 const { segments, products, programs = new Map(), awards = new Map(), admin = false } = Astro.props;
+// Anchor each product id only once so #product-<id> resolves to a unique element.
+const seenCardIds = new Set<string>();
 ---
 
 <div class="article-body">
@@ -29,8 +31,15 @@ const { segments, products, programs = new Map(), awards = new Map(), admin = fa
       switch (seg.name) {
         case "product-card": {
           const a = awards.get(p.id);
+          const firstForId = !seenCardIds.has(p.id);
+          seenCardIds.add(p.id);
           return (
-            <ProductCard product={products.get(p.id)} award={a?.award ?? null} bestFor={a?.bestFor ?? null} />
+            <ProductCard
+              product={products.get(p.id)}
+              award={a?.award ?? null}
+              bestFor={a?.bestFor ?? null}
+              anchorId={firstForId ? `product-${p.id}` : undefined}
+            />
           );
         }
         case "buy-button":

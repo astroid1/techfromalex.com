@@ -1,0 +1,41 @@
+---
+import SmartImage from "@/components/ui/SmartImage.astro";
+import BuyButton from "@/components/affiliate/BuyButton.astro";
+import { formatPrice } from "@/lib/format";
+import type { Product } from "@/lib/types";
+
+interface Props {
+  products: Product[];
+  title?: string;
+}
+const { products, title = "You might also like" } = Astro.props;
+---
+
+{
+  products.length > 0 && (
+    <section class="mt-16 border-t border-line pt-10">
+      <h2 class="mb-6 font-display text-2xl font-bold text-ink">{title}</h2>
+      <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {products.map((p) => (
+          <div class="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-4">
+            <div class="aspect-square overflow-hidden rounded-xl bg-white">
+              {p.imageUrl && (
+                <SmartImage src={p.imageUrl} alt={p.name} width={320} class="h-full w-full object-contain p-2" />
+              )}
+            </div>
+            <div class="flex min-w-0 flex-1 flex-col gap-1">
+              {p.brand && (
+                <p class="text-xs font-semibold uppercase tracking-widest text-muted">{p.brand}</p>
+              )}
+              <h3 class="line-clamp-2 text-sm font-semibold leading-snug text-ink">{p.name}</h3>
+              {p.priceCents != null && (
+                <p class="text-sm font-bold text-ink">{formatPrice(p.priceCents, p.currency)}</p>
+              )}
+            </div>
+            <BuyButton product={p} block />
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
