@@ -5,6 +5,7 @@ import Breadcrumbs from "@/components/layout/Breadcrumbs.astro";
 import SmartImage from "@/components/ui/SmartImage.astro";
 import CategoryBadge from "@/components/ui/CategoryBadge.astro";
 import AffiliateDisclosure from "@/components/affiliate/AffiliateDisclosure.astro";
+import StickyBuyBar from "@/components/affiliate/StickyBuyBar.astro";
 import ProseRenderer from "@/components/content/ProseRenderer.astro";
 import Faq from "@/components/content/Faq.astro";
 import ProgramCta from "@/components/content/ProgramCta.astro";
@@ -201,4 +202,6 @@ if (content.type === "howto") {
       )
     }
   </Container>
+
+  {content.type === "review" && <StickyBuyBar product={featured} />}
 </Base>

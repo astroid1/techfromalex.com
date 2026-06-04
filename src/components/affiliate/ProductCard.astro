@@ -3,6 +3,7 @@ import SmartImage from "@/components/ui/SmartImage.astro";
 import RatingStars from "@/components/ui/RatingStars.astro";
 import BuyButton from "@/components/affiliate/BuyButton.astro";
 import { formatPrice, formatMonthYear } from "@/lib/format";
+import { retailerLabel } from "@/lib/image";
 import type { Product } from "@/lib/types";
 
 interface Props {
@@ -14,6 +15,7 @@ const { product, award, bestFor } = Astro.props;
 const price = product ? formatPrice(product.priceCents, product.currency) : null;
 const checked = formatMonthYear(product?.priceObservedAt);
 const priceNote = checked ? `approx. · checked ${checked}` : "approx.";
+const others = product?.otherBuyLinks ?? [];
 ---
 
 {
@@ -50,8 +52,23 @@ const priceNote = checked ? `approx. · checked ${checked}` : "approx.";
           {product.description && (
             <p class="line-clamp-3 text-sm leading-relaxed text-ink-soft">{product.description}</p>
           )}
-          <div class="mt-auto pt-1">
+          <div class="mt-auto space-y-2 pt-1">
             <BuyButton product={product} />
+            {others.length > 0 && (
+              <p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+                <span>Also at</span>
+                {others.map((l) => (
+                  <a
+                    href={l.url}
+                    target="_blank"
+                    rel="nofollow sponsored noopener"
+                    class="font-medium text-ink-soft underline-offset-2 hover:underline"
+                  >
+                    {retailerLabel(l.network, l.url)}
+                  </a>
+                ))}
+              </p>
+            )}
           </div>
         </div>
       </div>

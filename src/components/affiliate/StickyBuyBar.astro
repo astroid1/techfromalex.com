@@ -1,0 +1,53 @@
+---
+import BuyButton from "@/components/affiliate/BuyButton.astro";
+import { formatPrice } from "@/lib/format";
+import type { Product } from "@/lib/types";
+
+interface Props {
+  product?: Product | null;
+}
+const { product } = Astro.props;
+const price = product ? formatPrice(product.priceCents, product.currency) : null;
+---
+
+{/* Mobile-only sticky CTA for review pages. Renders only with a tagged buy link. */}
+{
+  product?.buyUrl && (
+    <>
+      <div
+        id="sticky-buy-bar"
+        class="fixed inset-x-0 bottom-0 z-40 translate-y-full border-t border-line bg-surface shadow-[var(--shadow-lg)] transition-transform duration-300 lg:hidden"
+      >
+        <div class="flex items-center gap-3 px-4 py-3">
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-sm font-semibold text-ink">{product.name}</p>
+            {price && <p class="text-xs text-muted">{price} · approx.</p>}
+          </div>
+          <BuyButton product={product} />
+        </div>
+      </div>
+      <script is:inline>
+        (function () {
+          // Re-query the bar each call so one set of listeners works across
+          // ClientRouter view transitions (re-running this body script must NOT
+          // re-bind global listeners, or they leak one per navigation).
+          function update() {
+            var bar = document.getElementById("sticky-buy-bar");
+            if (!bar) return;
+            var doc = document.documentElement;
+            var y = window.scrollY || doc.scrollTop || 0;
+            var nearBottom = y + window.innerHeight >= doc.scrollHeight - 240;
+            bar.classList.toggle("translate-y-full", !(y > 600 && !nearBottom));
+          }
+          if (!window.__sbbInit) {
+            window.__sbbInit = true;
+            window.addEventListener("scroll", update, { passive: true });
+            window.addEventListener("resize", update);
+            document.addEventListener("astro:after-swap", update);
+          }
+          update();
+        })();
+      </script>
+    </>
+  )
+}

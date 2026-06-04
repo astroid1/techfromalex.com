@@ -53,3 +53,17 @@ export function retailerName(network: string | null | undefined): string {
       return "retailer";
   }
 }
+
+/** Display label for a buy link: a known brand name, else derived from the URL host
+ *  (e.g. an aggregator/manual link to walmart.com -> "Walmart"). */
+export function retailerLabel(network: string | null | undefined, url: string): string {
+  const name = retailerName(network);
+  if (name !== "retailer") return name;
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+    const core = host.split(".").slice(-2, -1)[0] || host;
+    return core.charAt(0).toUpperCase() + core.slice(1);
+  } catch {
+    return "another store";
+  }
+}

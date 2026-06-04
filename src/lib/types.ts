@@ -6,6 +6,12 @@ export type CategorySlug =
   | "deals"
   | "news";
 
+/** A tagged buy link at a specific retailer/network. */
+export interface BuyLink {
+  network: string;
+  url: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -24,6 +30,8 @@ export interface Product {
   buyNetwork: string | null;
   /** When the cached price was last observed (import/refresh); for the "approx." stamp. */
   priceObservedAt: string | null;
+  /** Additional tagged retailer links (one per network, excluding the primary) for "Also at ...". */
+  otherBuyLinks: BuyLink[];
 }
 
 /** A single-link affiliate program (e.g. make.com) resolved for a content CTA block. */

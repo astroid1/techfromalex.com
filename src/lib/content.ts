@@ -38,6 +38,15 @@ interface LinkRow {
   extra_params_json: string | null;
 }
 
+/** Hostname of a built buy URL (no www.), used to dedup retailers. */
+function linkHost(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
 /** Resolve products by id, each with a built primary affiliate URL. */
 export async function getProducts(
   db: D1Database,
@@ -73,26 +82,37 @@ export async function getProducts(
   }
 
   for (const r of prodRes.results ?? []) {
-    const link = (linksByProduct.get(r.id) ?? [])[0];
-    let buyUrl: string | null = null;
-    let buyNetwork: string | null = null;
-    if (link) {
+    // Build every active link into a tagged URL; drop any that can't be tagged
+    // (empty/broken tag) so we never ship an un-tagged link.
+    const built: { network: string; url: string }[] = [];
+    for (const l of linksByProduct.get(r.id) ?? []) {
       try {
-        buyUrl = buildAffiliateUrl(
+        const url = buildAffiliateUrl(
           {
-            network: link.network,
-            tracking_tag: link.tracking_tag,
-            link_rules_json: link.link_rules_json,
-            link_param: link.link_param,
-            extra_params_json: link.extra_params_json,
+            network: l.network,
+            tracking_tag: l.tracking_tag,
+            link_rules_json: l.link_rules_json,
+            link_param: l.link_param,
+            extra_params_json: l.extra_params_json,
           },
-          { base_url: link.base_url, tag_override: link.tag_override },
+          { base_url: l.base_url, tag_override: l.tag_override },
         );
-        buyNetwork = link.network;
+        built.push({ network: l.network, url });
       } catch {
-        buyUrl = null; // empty/broken tag — never ship an un-tagged link
+        // empty/broken tag — skip it
       }
     }
+    const primary = built[0] ?? null;
+    // Secondary retailers (one per destination host, excluding the primary) for "Also at ...".
+    // Dedup on host, NOT network: aggregator networks (manual/impact/cj) carry many distinct
+    // retailers, so keying on network would silently drop a legitimately tagged link.
+    const seenHosts = new Set<string>(primary ? [linkHost(primary.url)] : []);
+    const otherBuyLinks = built.filter((b) => {
+      const h = linkHost(b.url);
+      if (seenHosts.has(h)) return false;
+      seenHosts.add(h);
+      return true;
+    });
     out.set(r.id, {
       id: r.id,
       name: r.name,
@@ -106,9 +126,10 @@ export async function getProducts(
       pros: parseJson<string[]>(r.pros_json, []),
       cons: parseJson<string[]>(r.cons_json, []),
       specs: parseJson<Record<string, string>>(r.specs_json, {}),
-      buyUrl,
-      buyNetwork,
+      buyUrl: primary?.url ?? null,
+      buyNetwork: primary?.network ?? null,
       priceObservedAt: r.price_observed_at ?? null,
+      otherBuyLinks,
     });
   }
   return out;
