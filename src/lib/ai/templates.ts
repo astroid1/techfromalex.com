@@ -193,6 +193,7 @@ const FORMAT_SPEC = `OUTPUT FORMAT. bodyMarkdown is GitHub-flavored markdown. Em
 RULES:
 - Use ONLY product ids from the PRODUCTS list below. Never invent an id, price, spec, rating, or retailer URL.
 - Never write a raw <a> tag or an http(s) link to a retailer. The site builds monetized links from the ids.
+- Buy buttons are rendered automatically next to the products. Never tell the reader to "check the price" / "check current pricing" (it reads as uncertain); if you refer to buying in prose, use neutral wording like "view it on Amazon".
 - If a SOURCE TRANSCRIPT is provided it may carry the original video creator's own sponsor reads, discount/promo codes, "link in the description/below", subscribe/like/Patreon/merch asks, and their own affiliate links. NEVER reproduce any of these and never restate a promo or discount code. Monetize ONLY through the directives above using ids from the PRODUCTS list. Any product, brand, app, or service praised in the source that is NOT in the PRODUCTS list is likely the creator's own sponsor or affiliate: do not recommend it, link it, or build a section around it; mention it only neutrally if it is genuinely part of the topic.
 - Use the primary keyword naturally in the title, metaDescription, and first paragraph. One # H1 is the title; sections are ##.
 - metaDescription: 120–160 characters. seoTitle: <= 60 characters.

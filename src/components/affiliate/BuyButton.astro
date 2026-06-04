@@ -8,7 +8,10 @@ interface Props {
   block?: boolean;
 }
 const { product, label, block = false } = Astro.props;
-const text = label ?? `Check price on ${retailerName(product?.buyNetwork)}`;
+const brand = retailerName(product?.buyNetwork);
+// Single source of truth for buy-CTA copy. Retailer-aware "View on Amazon";
+// falls back to "View offer" when the network is generic (no brand name).
+const text = label ?? (brand === "retailer" ? "View offer" : `View on ${brand}`);
 ---
 
 {
