@@ -38,7 +38,13 @@ if (Astro.request.method === "POST") {
     await db.prepare("DELETE FROM content WHERE id = ?").bind(id).run();
     return Astro.redirect("/admin/content");
   } else if (action === "ai_generate") {
+    const genProgramIds = f.getAll("programIds").map(String).filter(Boolean);
     try {
+      // Persist the selected promoted programs so the regenerate features them with a ::promo CTA.
+      await db
+        .prepare("UPDATE content SET structured_json = json_set(structured_json, '$.programIds', json(?)) WHERE id=?")
+        .bind(JSON.stringify(genProgramIds), id)
+        .run();
       await generateDraft(env, db, id!);
       c = await db.prepare("SELECT * FROM content WHERE id = ?").bind(id).first<any>();
       notice = "AI draft generated — review and edit below.";
@@ -111,7 +117,7 @@ if (Astro.request.method === "POST") {
   const category = String(f.get("category") ?? "") || null;
   const verdict = f.get("verdict_score") ? Number(f.get("verdict_score")) : null;
   const bodyMd = String(f.get("body_md") ?? "");
-  const structuredRaw = String(f.get("structured_json") ?? "{}").trim() || "{}";
+  let structuredRaw = String(f.get("structured_json") ?? "{}").trim() || "{}";
   const seoTitle = String(f.get("seo_title") ?? "").trim() || null;
   const seoDescription = String(f.get("seo_description") ?? "").trim() || null;
   const heroUrl = String(f.get("hero_image_url") ?? "").trim() || null;
@@ -126,6 +132,12 @@ if (Astro.request.method === "POST") {
   }
 
   if (!error) {
+    // The "Promoted programs" selector is authoritative over structured.programIds.
+    const selProgramIds = f.getAll("programIds").map(String).filter(Boolean);
+    if (selProgramIds.length) structured.programIds = selProgramIds;
+    else delete structured.programIds;
+    structuredRaw = JSON.stringify(structured);
+
     const slug = await uniqueSlug(db, slugInput, id!);
     const now = nowIso();
     let status = c.status as string;
@@ -229,10 +241,12 @@ try {
 }
 let aiStatus: string | null = null;
 let aiError: string | null = null;
+let selectedProgramIds: string[] = [];
 try {
   const s = JSON.parse(c.structured_json || "{}");
   aiStatus = s.aiStatus ?? null;
   aiError = s.aiError ?? null;
+  if (Array.isArray(s.programIds)) selectedProgramIds = s.programIds.map(String);
 } catch {
   /* ignore */
 }
@@ -355,6 +369,25 @@ const statusLabel = String(c.status).replace("_", " ");
           )}
           <textarea name="body_md" data-body rows="20" class={`${input} font-mono text-sm leading-relaxed`}>{c.body_md}</textarea>
         </div>
+
+        <fieldset class="rounded-lg border border-line p-3">
+          <legend class="px-1 text-sm font-medium">Promote services / programs</legend>
+          {
+            programOpts.length ? (
+              <div class="space-y-1.5">
+                {programOpts.map((pg: any) => (
+                  <label class="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="programIds" value={pg.id} checked={selectedProgramIds.includes(pg.id)} />
+                    <span>{pg.name} <span class="text-muted">({pg.id})</span></span>
+                  </label>
+                ))}
+                <p class="text-xs text-muted">Selected programs get an AI-written section + a tagged ::promo CTA on the next "Regenerate all". Save to apply the selection without regenerating.</p>
+              </div>
+            ) : (
+              <p class="text-sm text-muted">No programs yet — <a href="/admin/programs/new" class="text-accent-strong">add one</a> (e.g. make.com).</p>
+            )
+          }
+        </fieldset>
 
         <details class="rounded-lg border border-line">
           <summary class="cursor-pointer px-4 py-2 text-sm font-medium">Template data (JSON) — advanced</summary>
