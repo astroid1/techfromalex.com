@@ -12,9 +12,11 @@ interface Props {
   segments: Segment[];
   products: Map<string, Product>;
   programs?: Map<string, ProgramCta>;
+  /** productId -> roundup award/best-for, surfaced on in-body product cards. */
+  awards?: Map<string, { award?: string | null; bestFor?: string | null }>;
   admin?: boolean;
 }
-const { segments, products, programs = new Map(), admin = false } = Astro.props;
+const { segments, products, programs = new Map(), awards = new Map(), admin = false } = Astro.props;
 ---
 
 <div class="article-body">
@@ -25,8 +27,12 @@ const { segments, products, programs = new Map(), admin = false } = Astro.props;
       }
       const p: any = seg.props;
       switch (seg.name) {
-        case "product-card":
-          return <ProductCard product={products.get(p.id)} />;
+        case "product-card": {
+          const a = awards.get(p.id);
+          return (
+            <ProductCard product={products.get(p.id)} award={a?.award ?? null} bestFor={a?.bestFor ?? null} />
+          );
+        }
         case "buy-button":
           return (
             <div class="my-6">

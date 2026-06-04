@@ -12,11 +12,21 @@ export function formatPrice(
 
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
   return new Intl.DateTimeFormat("en-US", {
     year: "numeric",
     month: "long",
     day: "numeric",
-  }).format(new Date(iso));
+  }).format(d);
+}
+
+/** Short "Apr 2026" style, used for the cached-price "checked" stamp. */
+export function formatMonthYear(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("en-US", { year: "numeric", month: "short" }).format(d);
 }
 
 export function slugify(s: string): string {

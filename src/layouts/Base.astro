@@ -11,6 +11,8 @@ interface Props {
   image?: string | null;
   type?: "website" | "article";
   noindex?: boolean;
+  /** Override the default (current-path) canonical URL; absolute or root-relative. */
+  canonical?: string | null;
 }
 const SITE = "Tech From Alex";
 const site = Astro.site ?? new URL(Astro.url.origin);
@@ -20,9 +22,12 @@ const {
   image,
   type = "website",
   noindex = false,
+  canonical: canonicalProp,
 } = Astro.props;
 
-const canonical = new URL(Astro.url.pathname, site).toString();
+const canonical = canonicalProp
+  ? new URL(canonicalProp, site).toString()
+  : new URL(Astro.url.pathname, site).toString();
 const fullTitle = title ? `${title} | ${SITE}` : `${SITE} — Tech Reviews, Guides & Deals`;
 const ogImage = image ?? null;
 

@@ -7,9 +7,10 @@ interface Props {
   products: Map<string, Product>;
 }
 const { content, products } = Astro.props;
-const s = content.structured as { picks?: RoundupPick[]; criteria?: string[] };
+const s = content.structured as { picks?: RoundupPick[]; criteria?: string[]; howWeChose?: string };
 const picks = (s.picks ?? []).slice().sort((a, b) => a.rank - b.rank);
 const criteria = s.criteria ?? [];
+const howWeChose = (s.howWeChose ?? "").trim();
 ---
 
 {
@@ -27,7 +28,9 @@ const criteria = s.criteria ?? [];
               <div class="min-w-0 flex-1">
                 <p class="text-xs font-semibold uppercase tracking-wide text-accent-strong">{pick.award}</p>
                 <p class="font-semibold text-ink">{p?.name ?? pick.productId}</p>
-                {pick.bestFor && <p class="text-sm text-muted">Best for {pick.bestFor.toLowerCase()}</p>}
+                {typeof pick.bestFor === "string" && pick.bestFor && (
+                  <p class="text-sm text-muted">Best for {pick.bestFor.toLowerCase()}</p>
+                )}
               </div>
               {p?.rating != null && (
                 <div class="hidden sm:block">
@@ -38,10 +41,20 @@ const criteria = s.criteria ?? [];
           );
         })}
       </ul>
-      {criteria.length > 0 && (
-        <p class="mt-4 border-t border-line pt-4 text-sm text-muted">
-          We judged on: {criteria.join(" · ")}.
-        </p>
+      {(howWeChose || criteria.length > 0) && (
+        <div class="mt-4 border-t border-line pt-4">
+          {howWeChose && (
+            <p class="text-sm leading-relaxed text-ink-soft">
+              <span class="font-semibold text-ink">How we chose: </span>
+              {howWeChose}
+            </p>
+          )}
+          {criteria.length > 0 && (
+            <p class={`text-sm text-muted ${howWeChose ? "mt-2" : ""}`}>
+              We judged on: {criteria.join(" · ")}.
+            </p>
+          )}
+        </div>
       )}
     </div>
   )

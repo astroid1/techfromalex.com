@@ -22,6 +22,8 @@ export interface Product {
   /** Built affiliate URL for the primary active link, if any. */
   buyUrl: string | null;
   buyNetwork: string | null;
+  /** When the cached price was last observed (import/refresh); for the "approx." stamp. */
+  priceObservedAt: string | null;
 }
 
 /** A single-link affiliate program (e.g. make.com) resolved for a content CTA block. */
@@ -57,6 +59,7 @@ export interface ContentFull extends ContentSummary {
   seoTitle: string | null;
   seoDescription: string | null;
   canonicalUrl: string | null;
+  noindex: boolean;
   dealPriceCents: number | null;
   dealExpiresAt: string | null;
   tags: string[];

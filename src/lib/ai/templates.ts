@@ -122,7 +122,8 @@ const TEMPLATES: Record<
     instructions:
       "Write a 1,500–2,500 word 'best X' buying guide. structured.picks ranks the provided products (rank starts at 1); " +
       "each productId MUST be a provided id; award is e.g. 'Best Overall', 'Best Budget'. For each pick write a ## section " +
-      "with a ::product-card{id=\"...\"} and a short verdict. Add a ## How We Chose section.",
+      "with a ::product-card{id=\"...\"} and a short verdict. The selection methodology goes in structured.howWeChose " +
+      "(the site renders it in the intro), so do NOT also write a separate How We Chose section in the body.",
   },
   news_deal: {
     label: "news / deal post",

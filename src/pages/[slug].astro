@@ -52,6 +52,13 @@ const products = await getProducts(db, productIds);
 const structProgramIds: string[] = Array.isArray(s.programIds) ? s.programIds.map(String) : [];
 const programs = await getPrograms(db, [...new Set([...programIdsInBody(content.bodyMd), ...structProgramIds])]);
 const topPrograms = structProgramIds.map((pid) => programs.get(pid)).filter(Boolean);
+// Surface each roundup pick's award + best-for onto its in-body product card.
+const awards = new Map<string, { award?: string | null; bestFor?: string | null }>();
+if (Array.isArray(s.picks)) {
+  for (const pk of s.picks) {
+    if (pk?.productId) awards.set(pk.productId, { award: pk.award ?? null, bestFor: pk.bestFor ?? null });
+  }
+}
 
 const { segments, toc } = await renderBody(content.bodyMd, products);
 const author = await getAuthor(db, content.authorId);
@@ -105,6 +112,8 @@ if (content.type === "howto") {
   description={content.seoDescription ?? content.dek ?? undefined}
   image={heroAbs}
   type="article"
+  canonical={content.canonicalUrl}
+  noindex={content.noindex}
 >
   <JsonLd slot="head" data={ld} />
 
@@ -164,7 +173,7 @@ if (content.type === "howto") {
         {content.type === "comparison" && <ComparisonIntro content={content} products={products} />}
         {content.type === "news_deal" && <NewsIntro content={content} products={products} />}
         {content.type === "howto" && <HowtoIntro content={content} />}
-        <ProseRenderer segments={segments} products={products} programs={programs} />
+        <ProseRenderer segments={segments} products={products} programs={programs} awards={awards} />
         <Faq items={faqItems} />
       </article>
 

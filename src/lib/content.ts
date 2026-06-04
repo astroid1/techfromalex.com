@@ -23,6 +23,7 @@ interface ProductRow {
   pros_json: string;
   cons_json: string;
   specs_json: string;
+  price_observed_at: string | null;
 }
 
 interface LinkRow {
@@ -107,6 +108,7 @@ export async function getProducts(
       specs: parseJson<Record<string, string>>(r.specs_json, {}),
       buyUrl,
       buyNetwork,
+      priceObservedAt: r.price_observed_at ?? null,
     });
   }
   return out;
@@ -132,6 +134,7 @@ interface ContentRow {
   seo_title?: string | null;
   seo_description?: string | null;
   canonical_url?: string | null;
+  noindex?: number;
   deal_price_cents?: number | null;
   deal_expires_at?: string | null;
 }
@@ -245,6 +248,7 @@ export async function getContentBySlug(
     seoTitle: r.seo_title ?? null,
     seoDescription: r.seo_description ?? null,
     canonicalUrl: r.canonical_url ?? null,
+    noindex: r.noindex === 1,
     dealPriceCents: r.deal_price_cents ?? null,
     dealExpiresAt: r.deal_expires_at ?? null,
     tags: (tagsRes.results ?? []).map((t) => t.tag_slug),
