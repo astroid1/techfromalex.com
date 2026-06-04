@@ -7,6 +7,7 @@ import CategoryBadge from "@/components/ui/CategoryBadge.astro";
 import AffiliateDisclosure from "@/components/affiliate/AffiliateDisclosure.astro";
 import ProseRenderer from "@/components/content/ProseRenderer.astro";
 import Faq from "@/components/content/Faq.astro";
+import ProgramCta from "@/components/content/ProgramCta.astro";
 import TOC from "@/components/blog/TOC.astro";
 import PostCard from "@/components/blog/PostCard.astro";
 import JsonLd from "@/components/seo/JsonLd.astro";
@@ -48,7 +49,9 @@ if (Array.isArray(s.picks)) for (const p of s.picks) if (p.productId) structIds.
 if (Array.isArray(s.entrants)) structIds.push(...s.entrants);
 const productIds = [...new Set([...relIds, ...structIds, ...bodyIds])];
 const products = await getProducts(db, productIds);
-const programs = await getPrograms(db, programIdsInBody(content.bodyMd));
+const structProgramIds: string[] = Array.isArray(s.programIds) ? s.programIds.map(String) : [];
+const programs = await getPrograms(db, [...new Set([...programIdsInBody(content.bodyMd), ...structProgramIds])]);
+const topPrograms = structProgramIds.map((pid) => programs.get(pid)).filter(Boolean);
 
 const { segments, toc } = await renderBody(content.bodyMd, products);
 const author = await getAuthor(db, content.authorId);
@@ -155,6 +158,7 @@ if (content.type === "howto") {
             <AffiliateDisclosure />
           </div>
         )}
+        {topPrograms.map((pg) => <ProgramCta program={pg} compact />)}
         {content.type === "review" && <ReviewIntro content={content} products={products} />}
         {content.type === "roundup" && <RoundupIntro content={content} products={products} />}
         {content.type === "comparison" && <ComparisonIntro content={content} products={products} />}
