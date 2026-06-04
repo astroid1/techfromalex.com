@@ -84,7 +84,7 @@ CREATE INDEX idx_plinks_profile ON product_links(affiliate_profile_id);
 
 CREATE TABLE content (
   id               TEXT PRIMARY KEY,
-  type             TEXT NOT NULL CHECK(type IN ('review','comparison','roundup','news_deal')),
+  type             TEXT NOT NULL, -- content type enum lives in app code (ContentType); see 0007
   status           TEXT NOT NULL DEFAULT 'draft'
                      CHECK(status IN ('draft','in_review','scheduled','published','unpublished')),
   slug             TEXT NOT NULL UNIQUE,
