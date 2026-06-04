@@ -50,6 +50,7 @@ export async function generateDraft(env: Env, db: D1Database, contentId: string)
   const brief = String(inStruct.brief ?? "");
   const keyword = String(inStruct.primaryKeyword ?? "");
   const instructions = String(inStruct.instructions ?? "");
+  const source = String(inStruct.sourceTranscript ?? "");
 
   const productIds = await getContentProductIds(db, contentId);
   const productMap = await getProducts(db, productIds);
@@ -68,7 +69,7 @@ export async function generateDraft(env: Env, db: D1Database, contentId: string)
 
   const tmpl = getTemplate(c.type);
   const system = buildSystem(c.type, facts);
-  let userText = buildUserText(c.title, keyword, brief, productIds, instructions);
+  let userText = buildUserText(c.title, keyword, brief, productIds, instructions, source);
 
   let { data } = await generateStructured<DraftOutput>({ apiKey, system, userText, schema: tmpl.schema });
 

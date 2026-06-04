@@ -15,6 +15,7 @@ interface Env {
   ADMIN_EMAIL: string;
   SITE_URL: string;
   APIFY_AMAZON_ACTOR?: string;
+  APIFY_YOUTUBE_ACTOR?: string;
   IMAGE_TRANSFORMS?: string;
   // Secrets (wrangler secret put) — present at runtime in prod
   ANTHROPIC_API_KEY?: string;

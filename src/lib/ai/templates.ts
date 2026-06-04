@@ -222,6 +222,7 @@ export function buildUserText(
   brief: string,
   productIds: string[],
   instructions = "",
+  source = "",
 ): string {
   return [
     `Title / topic: ${title}`,
@@ -229,6 +230,10 @@ export function buildUserText(
     brief ? `Brief / angle: ${brief}` : "",
     productIds.length ? `Products to feature (ids): ${productIds.join(", ")}` : "No products selected.",
     instructions ? `\nAdditional instructions (follow these closely):\n${instructions}` : "",
+    source
+      ? "\nSOURCE TRANSCRIPT (this article is based on the following video transcript — reorganize and rewrite it as a proper article in your own words and our voice, expand and structure it, and do NOT state anything the transcript does not support; never copy it verbatim):\n" +
+        source
+      : "",
     "",
     "Write the piece now, filling the JSON schema exactly.",
   ]

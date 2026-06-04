@@ -254,3 +254,113 @@ export async function createImportedProduct(
   }
   return id;
 }
+
+/* ----------------------------------------------------------- YouTube transcripts */
+
+const DEFAULT_YT_ACTOR = "pintostudio~youtube-transcript-scraper";
+
+export interface TranscriptResult {
+  videoUrl: string;
+  title: string | null;
+  transcript: string; // full plain text
+  segments: number;
+}
+
+/** Normalize any YouTube URL / id / share link to a canonical watch URL. */
+export function normalizeYoutubeUrl(input: string): string | null {
+  const s = (input || "").trim();
+  if (!s) return null;
+  if (/^[\w-]{11}$/.test(s)) return `https://www.youtube.com/watch?v=${s}`; // bare video id
+  let u: URL;
+  try {
+    u = new URL(s);
+  } catch {
+    return null;
+  }
+  const host = u.hostname.replace(/^www\./, "");
+  if (host === "youtu.be") {
+    const id = u.pathname.slice(1).split("/")[0];
+    return id ? `https://www.youtube.com/watch?v=${id}` : null;
+  }
+  if (host === "youtube.com" || host.endsWith(".youtube.com")) {
+    // covers www / m / music / gaming subdomains (dot-boundary, so not "evilyoutube.com")
+    const v = u.searchParams.get("v");
+    if (v) return `https://www.youtube.com/watch?v=${v}`;
+    const m = u.pathname.match(/\/(?:shorts|embed|v|live)\/([\w-]{11})/);
+    if (m) return `https://www.youtube.com/watch?v=${m[1]}`;
+    return s;
+  }
+  return null; // not a YouTube URL
+}
+
+/**
+ * Flatten the actor's transcript output into plain text. Defensive: the segments
+ * may live under `data` / `transcript` / `captions` / `segments` as objects with a
+ * `text` field, or the items may BE segments, or a single text blob.
+ */
+export function mapTranscript(videoUrl: string, items: any[]): TranscriptResult {
+  const segs: string[] = [];
+  let title: string | null = null;
+  const pushSeg = (seg: any) => {
+    if (typeof seg === "string") {
+      const t = seg.trim();
+      if (t) segs.push(t);
+      return;
+    }
+    const t = String(seg?.text ?? seg?.caption ?? seg?.content ?? seg?.snippet ?? "").trim();
+    if (t) segs.push(t);
+  };
+  for (const item of items ?? []) {
+    if (!item) continue;
+    if (!title) title = item.title ?? item.videoTitle ?? item.video?.title ?? item.metadata?.title ?? null;
+    // pintostudio~youtube-transcript-scraper wraps segments in `searchResult`; keep the
+    // other keys as fallbacks so a different actor still works.
+    const arr =
+      item.searchResult ?? item.data ?? item.transcript ?? item.captions ?? item.segments ?? item.subtitles;
+    if (Array.isArray(arr)) {
+      for (const s of arr) pushSeg(s);
+      continue;
+    }
+    if (typeof item.text === "string") {
+      pushSeg(item);
+      continue;
+    }
+    if (typeof item.transcript === "string") {
+      const t = item.transcript.trim();
+      if (t) segs.push(t);
+    }
+  }
+  const transcript = segs.join(" ").replace(/\s+/g, " ").trim();
+  if (segs.length === 0) {
+    // Surface the actual shape so mapTranscript can be tuned after the first live run.
+    console.log("[apify-yt] no transcript segments; raw item keys:", Object.keys(items?.[0] ?? {}).join(","));
+  }
+  return { videoUrl, title: title ? String(title).trim() : null, transcript, segments: segs.length };
+}
+
+/** Run the YouTube transcript actor synchronously and return the raw dataset items. */
+export async function runYoutubeTranscript(env: Env, videoUrl: string): Promise<any[]> {
+  const token = env.APIFY_TOKEN;
+  if (!token) throw new Error("APIFY_TOKEN is not configured. Run: wrangler secret put APIFY_TOKEN");
+  if (!videoUrl) throw new Error("Enter a YouTube video URL.");
+  const actor = env.APIFY_YOUTUBE_ACTOR || DEFAULT_YT_ACTOR;
+  const input = { videoUrl };
+
+  let res: Response;
+  try {
+    res = await fetch(`https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?clean=true`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: JSON.stringify(input),
+    });
+  } catch (e) {
+    throw new Error(`Apify request failed: ${(e as Error).message}`);
+  }
+  if (res.status === 408) throw new Error("Apify timed out — try again or a shorter video.");
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Apify API ${res.status}: ${text.slice(0, 300)}`);
+  }
+  const data = (await res.json().catch(() => [])) as unknown;
+  return Array.isArray(data) ? data : [];
+}
