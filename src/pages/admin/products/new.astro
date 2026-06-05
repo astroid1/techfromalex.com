@@ -31,11 +31,13 @@ if (Astro.request.method === "POST") {
     try {
       await db
         .prepare(
-          `INSERT INTO products (id,name,brand,category,image_url,price_cents,currency,price_source,rating,description,pros_json,cons_json,specs_json,created_at,updated_at)
-           VALUES (?,?,?,?,?,?, 'USD','manual', ?,?,?,?,?,?,?)`,
+          `INSERT INTO products (id,name,brand,category,image_url,price_cents,currency,price_source,price_observed_at,rating,description,pros_json,cons_json,specs_json,created_at,updated_at)
+           VALUES (?,?,?,?,?,?, 'USD','manual', ?,?,?,?,?,?,?,?)`,
         )
         .bind(
-          id, p.name, p.brand, p.category, imageUrl, p.price_cents, p.rating, p.description,
+          id, p.name, p.brand, p.category, imageUrl, p.price_cents,
+          p.price_cents != null ? now : null,
+          p.rating, p.description,
           JSON.stringify(p.pros), JSON.stringify(p.cons), JSON.stringify(p.specs), now, now,
         )
         .run();

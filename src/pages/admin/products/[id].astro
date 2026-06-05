@@ -101,10 +101,12 @@ if (Astro.request.method === "POST") {
       try {
         await db
           .prepare(
-            `UPDATE products SET name=?,brand=?,category=?,image_url=?,price_cents=?,rating=?,description=?,pros_json=?,cons_json=?,specs_json=?,updated_at=? WHERE id=?`,
+            `UPDATE products SET name=?,brand=?,category=?,image_url=?,price_cents=?,price_observed_at=COALESCE(?,price_observed_at),rating=?,description=?,pros_json=?,cons_json=?,specs_json=?,updated_at=? WHERE id=?`,
           )
           .bind(
-            pf.name, pf.brand, pf.category, imageUrl, pf.price_cents, pf.rating, pf.description,
+            pf.name, pf.brand, pf.category, imageUrl, pf.price_cents,
+            pf.price_cents != null ? nowIso() : null,
+            pf.rating, pf.description,
             JSON.stringify(pf.pros), JSON.stringify(pf.cons), JSON.stringify(pf.specs), nowIso(), id,
           )
           .run();
