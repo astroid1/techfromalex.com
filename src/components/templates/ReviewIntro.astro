@@ -9,11 +9,16 @@ interface Props {
 const { content } = Astro.props;
 const s = content.structured as {
   verdictSummary?: string;
+  scorecard?: { label?: unknown; score?: unknown }[];
   whoItsFor?: string[];
   whoItsNot?: string[];
 };
 const whoFor = s.whoItsFor ?? [];
 const whoNot = s.whoItsNot ?? [];
+const scorecard = (Array.isArray(s.scorecard) ? s.scorecard : []).filter(
+  (c): c is { label: string; score: number } =>
+    !!c && typeof c.label === "string" && typeof c.score === "number",
+);
 ---
 
 <div class="not-prose glass mb-10 rounded-2xl p-6">
@@ -26,6 +31,21 @@ const whoNot = s.whoItsNot ?? [];
     </div>
     {content.verdictScore != null && <VerdictBadge score={content.verdictScore} />}
   </div>
+  {
+    scorecard.length > 0 && (
+      <div class="mt-5 grid gap-x-6 gap-y-3 border-t border-line pt-5 sm:grid-cols-2">
+        {scorecard.map((c) => (
+          <div class="flex items-center gap-3">
+            <span class="w-28 shrink-0 truncate text-sm text-ink-soft" title={c.label}>{c.label}</span>
+            <div class="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
+              <div class="h-full rounded-full bg-accent" style={`width:${Math.max(0, Math.min(10, c.score)) * 10}%`} />
+            </div>
+            <span class="w-8 shrink-0 text-right text-sm font-bold tabular-nums text-ink">{c.score.toFixed(1)}</span>
+          </div>
+        ))}
+      </div>
+    )
+  }
   {
     (whoFor.length > 0 || whoNot.length > 0) && (
       <div class="mt-5 grid gap-5 border-t border-line pt-5 sm:grid-cols-2">

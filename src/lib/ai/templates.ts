@@ -61,18 +61,32 @@ const TEMPLATES: Record<
     schema: envelope({
       type: "object",
       additionalProperties: false,
-      required: ["productId", "verdictScore", "verdictSummary", "whoItsFor", "whoItsNot"],
+      required: ["productId", "verdictScore", "verdictSummary", "scorecard", "whoItsFor", "whoItsNot"],
       properties: {
         productId: { type: "string" },
         verdictScore: { type: "number" },
         verdictSummary: { type: "string" },
+        scorecard: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["label", "score"],
+            properties: {
+              label: { type: "string" },
+              score: { type: "number" },
+            },
+          },
+        },
         whoItsFor: { type: "array", items: { type: "string" } },
         whoItsNot: { type: "array", items: { type: "string" } },
       },
     }),
     instructions:
       "Write a 1,200–1,800 word single-product review. structured.productId MUST be the provided product's id. " +
-      "verdictScore is 0–10 (one decimal). Open with a short hook, then ## sections (Design, Performance, etc.). " +
+      "verdictScore is 0–10 (one decimal). scorecard rates 3 to 5 specific criteria (e.g. Build, Performance, " +
+      "Value, Battery), each scored 0–10 (one decimal); verdictScore should roughly reflect the scorecard. " +
+      "Open with a short hook, then ## sections (Design, Performance, etc.). " +
       "Place one ::product-card{id=\"...\"} near the top and one ::buy-button{id=\"...\"} near the end. " +
       "Include a :::pros-cons block with several real items under BOTH pros and cons.",
   },
