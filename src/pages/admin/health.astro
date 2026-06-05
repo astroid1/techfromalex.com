@@ -1,0 +1,114 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { getDB } from "@/lib/db";
+import { getLinkHealth } from "@/lib/health";
+
+export const prerender = false;
+const db = getDB(Astro.locals);
+const r = await getLinkHealth(db);
+const allClear = r.untaggedLinks.length === 0 && r.unmonetized.length === 0 && r.externalImages.length === 0;
+
+const cards = [
+  { label: "Products", value: r.totals.products },
+  { label: "Monetizable products", value: r.totals.monetizedProducts },
+  { label: "Active buy links", value: r.totals.links },
+];
+---
+
+<AdminLayout title="Health checks">
+  <p class="text-sm text-muted">
+    On-demand integrity check: buy links that can't build a tagged URL, products with no
+    revenue link, and hero images that were never internalized into R2. Reload to re-run.
+  </p>
+
+  <div class="mt-6 grid gap-4 sm:grid-cols-3">
+    {
+      cards.map((c) => (
+        <div class="rounded-xl border border-line bg-surface p-5">
+          <p class="text-sm text-muted">{c.label}</p>
+          <p class="mt-1 font-display text-3xl font-bold">{c.value}</p>
+        </div>
+      ))
+    }
+  </div>
+
+  {
+    allClear && (
+      <p class="mt-8 rounded-xl border border-dashed border-line p-8 text-center" style="color:var(--success)">
+        ✓ All buy links build a tagged URL, every product is monetizable, and all hero images are internalized.
+      </p>
+    )
+  }
+
+  {
+    r.untaggedLinks.length > 0 && (
+      <section class="mt-8">
+        <h2 class="font-display text-lg font-bold" style="color:var(--danger)">
+          ⚠ Buy links that won't monetize ({r.untaggedLinks.length})
+        </h2>
+        <p class="mt-1 text-sm text-muted">These links can't build a tagged affiliate URL, so the site renders no buy button for them. Fix the profile's tracking tag.</p>
+        <div class="mt-3 overflow-hidden rounded-xl border border-line bg-surface">
+          <table class="w-full text-sm">
+            <thead class="bg-surface-2 text-left text-xs uppercase tracking-wide text-muted">
+              <tr><th class="p-3">Product</th><th class="p-3">Profile</th><th class="p-3">Reason</th></tr>
+            </thead>
+            <tbody>
+              {r.untaggedLinks.map((l) => (
+                <tr class="border-t border-line">
+                  <td class="p-3"><a href={`/admin/products/${l.productId}`} class="font-medium hover:text-accent-strong">{l.productName}</a></td>
+                  <td class="p-3 text-muted">{l.profileName} <span class="text-xs">({l.network})</span></td>
+                  <td class="p-3" style="color:var(--danger)">{l.reason}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    )
+  }
+
+  {
+    r.unmonetized.length > 0 && (
+      <section class="mt-8">
+        <h2 class="font-display text-lg font-bold">Products with no working buy link ({r.unmonetized.length})</h2>
+        <p class="mt-1 text-sm text-muted">These products can appear in content but earn nothing. Add (or fix) an affiliate buy link.</p>
+        <div class="mt-3 overflow-hidden rounded-xl border border-line bg-surface">
+          <table class="w-full text-sm">
+            <tbody>
+              {r.unmonetized.map((p) => (
+                <tr class="border-t border-line first:border-t-0">
+                  <td class="p-3"><a href={`/admin/products/${p.productId}`} class="font-medium hover:text-accent-strong">{p.productName}</a></td>
+                  <td class="p-3 text-right text-muted">{p.reason}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    )
+  }
+
+  {
+    r.externalImages.length > 0 && (
+      <section class="mt-8">
+        <h2 class="font-display text-lg font-bold">Hero images not internalized ({r.externalImages.length})</h2>
+        <p class="mt-1 text-sm text-muted">These still point at an external URL (internalization failed or never ran), so they can break or skip our image transforms. Re-save the item to internalize.</p>
+        <div class="mt-3 overflow-hidden rounded-xl border border-line bg-surface">
+          <table class="w-full text-sm">
+            <tbody>
+              {r.externalImages.map((im) => (
+                <tr class="border-t border-line first:border-t-0">
+                  <td class="p-3">
+                    <a href={im.editHref} class="font-medium hover:text-accent-strong">{im.name}</a>
+                    <span class="ml-2 rounded bg-surface-2 px-1.5 py-0.5 text-xs text-muted">{im.kind}</span>
+                  </td>
+                  <td class="p-3"><code class="block max-w-[28rem] truncate text-xs text-muted" title={im.url}>{im.url}</code></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    )
+  }
+</AdminLayout>
