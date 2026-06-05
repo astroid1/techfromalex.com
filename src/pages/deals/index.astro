@@ -52,7 +52,7 @@ const dealPosts = await listPublished(db, { category: "deals", limit: 12 });
               {p.rating != null && <RatingStars rating={p.rating} showValue />}
               <div class="mt-auto flex items-center justify-between gap-3 pt-3">
                 <span class="text-lg font-extrabold text-ink">{formatPrice(p.priceCents, p.currency) ?? ""}</span>
-                <BuyButton product={p} />
+                <BuyButton product={p} placement="deals-grid" />
               </div>
             </div>
           </article>

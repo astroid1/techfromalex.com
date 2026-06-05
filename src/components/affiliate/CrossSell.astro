@@ -32,7 +32,7 @@ const { products, title = "You might also like" } = Astro.props;
                 <p class="text-sm font-bold text-ink">{formatPrice(p.priceCents, p.currency)}</p>
               )}
             </div>
-            <BuyButton product={p} block />
+            <BuyButton product={p} placement="cross-sell" block />
           </div>
         ))}
       </div>

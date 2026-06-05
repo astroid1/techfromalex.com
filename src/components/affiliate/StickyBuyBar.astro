@@ -23,7 +23,7 @@ const price = product ? formatPrice(product.priceCents, product.currency) : null
             <p class="truncate text-sm font-semibold text-ink">{product.name}</p>
             {price && <p class="text-xs text-muted">{price} · approx.</p>}
           </div>
-          <BuyButton product={product} />
+          <BuyButton product={product} placement="sticky-bar" />
         </div>
       </div>
       <script is:inline>

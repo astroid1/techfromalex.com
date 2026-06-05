@@ -1,5 +1,6 @@
 ---
 import SmartImage from "@/components/ui/SmartImage.astro";
+import { goUrl } from "@/lib/clicks";
 import type { ProgramCta } from "@/lib/types";
 
 interface Props {
@@ -10,6 +11,9 @@ interface Props {
   compact?: boolean;
 }
 const { program, admin = false, compact = false } = Astro.props;
+const href = program?.url
+  ? goUrl({ type: "program", id: program.id, placement: compact ? "program-cta-top" : "program-cta" })
+  : null;
 ---
 
 {
@@ -18,7 +22,7 @@ const { program, admin = false, compact = false } = Astro.props;
       <aside class="not-prose my-6 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
         <span class="min-w-0 flex-1 text-sm font-semibold text-ink">{program.headline}</span>
         <a
-          href={program.url}
+          href={href}
           target="_blank"
           rel="nofollow sponsored noopener"
           class="btn-accent group inline-flex shrink-0 items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold"
@@ -46,7 +50,7 @@ const { program, admin = false, compact = false } = Astro.props;
           {program.blurb && <p class="mt-1.5 leading-relaxed text-ink-soft">{program.blurb}</p>}
         </div>
         <a
-          href={program.url}
+          href={href}
           target="_blank"
           rel="nofollow sponsored noopener"
           class="btn-accent group inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-5 py-3 font-semibold"

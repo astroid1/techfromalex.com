@@ -55,7 +55,7 @@ for (const p of items) {
           <tr class="border-t border-line bg-surface-2">
             <th scope="row" class="p-3"><span class="sr-only">Buy</span></th>
             {items.map((p) => (
-              <td class="p-3">{p.buyUrl ? <BuyButton product={p} /> : null}</td>
+              <td class="p-3">{p.buyUrl ? <BuyButton product={p} placement="comparison" /> : null}</td>
             ))}
           </tr>
         </tbody>

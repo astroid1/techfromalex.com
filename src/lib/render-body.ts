@@ -10,6 +10,7 @@ import { toString as mdToString } from "mdast-util-to-string";
 import type { Root, RootContent, Heading as MdHeading } from "mdast";
 import { slugify } from "./format";
 import type { Product } from "./types";
+import { goUrl } from "./clicks";
 
 export type EmbedName =
   | "product-card"
@@ -148,7 +149,7 @@ export async function renderBody(
       if (product?.buyUrl) {
         const link: RootContent = {
           type: "link",
-          url: product.buyUrl,
+          url: goUrl({ type: "product", id, network: product.buyNetwork, placement: "inline" }),
           title: null,
           data: {
             hProperties: {

@@ -39,7 +39,7 @@ interface LinkRow {
 }
 
 /** Hostname of a built buy URL (no www.), used to dedup retailers. */
-function linkHost(url: string): string {
+export function linkHost(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
   } catch {

@@ -4,6 +4,8 @@ import RatingStars from "@/components/ui/RatingStars.astro";
 import BuyButton from "@/components/affiliate/BuyButton.astro";
 import { formatPrice, formatMonthYear } from "@/lib/format";
 import { retailerLabel } from "@/lib/image";
+import { goUrl } from "@/lib/clicks";
+import { linkHost } from "@/lib/content";
 import type { Product } from "@/lib/types";
 
 interface Props {
@@ -55,13 +57,13 @@ const others = product?.otherBuyLinks ?? [];
             <p class="line-clamp-3 text-sm leading-relaxed text-ink-soft">{product.description}</p>
           )}
           <div class="mt-auto space-y-2 pt-1">
-            <BuyButton product={product} />
+            <BuyButton product={product} placement="product-card" />
             {others.length > 0 && (
               <p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
                 <span>Also at</span>
                 {others.map((l) => (
                   <a
-                    href={l.url}
+                    href={goUrl({ type: "product", id: product.id, network: l.network, host: linkHost(l.url), placement: "also-at" })}
                     target="_blank"
                     rel="nofollow sponsored noopener"
                     class="font-medium text-ink-soft underline-offset-2 hover:underline"

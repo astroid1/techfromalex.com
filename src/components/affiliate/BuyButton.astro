@@ -1,23 +1,31 @@
 ---
 import { retailerName } from "@/lib/image";
+import { goUrl } from "@/lib/clicks";
 import type { Product } from "@/lib/types";
 
 interface Props {
   product?: Product | null;
   label?: string;
   block?: boolean;
+  /** Click-tracking placement label (e.g. "product-card", "cross-sell"). */
+  placement?: string;
 }
-const { product, label, block = false } = Astro.props;
+const { product, label, block = false, placement = "buy-button" } = Astro.props;
 const brand = retailerName(product?.buyNetwork);
 // Single source of truth for buy-CTA copy. Retailer-aware "View on Amazon";
 // falls back to "View offer" when the network is generic (no brand name).
 const text = label ?? (brand === "retailer" ? "View offer" : `View on ${brand}`);
+// Route through the first-party /go tracker (it rebuilds the tagged URL server-side).
+const href =
+  product?.buyUrl && product.id
+    ? goUrl({ type: "product", id: product.id, network: product.buyNetwork, placement })
+    : null;
 ---
 
 {
-  product?.buyUrl ? (
+  href ? (
     <a
-      href={product.buyUrl}
+      href={href}
       target="_blank"
       rel="nofollow sponsored noopener"
       class={`btn-accent not-prose group inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 font-semibold ${block ? "w-full" : ""}`}

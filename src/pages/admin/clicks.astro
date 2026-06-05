@@ -1,0 +1,150 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { getDB } from "@/lib/db";
+import { getClickStats } from "@/lib/clicks";
+
+export const prerender = false;
+const db = getDB(Astro.locals);
+
+const daysRaw = Number(Astro.url.searchParams.get("days"));
+const days = [7, 30, 90].includes(daysRaw) ? daysRaw : 30;
+const ranges = [7, 30, 90];
+const stats = await getClickStats(db, days);
+const maxDay = Math.max(1, ...stats.byDay.map((d) => d.n));
+
+const cards = [
+  { label: "Total clicks", value: stats.total },
+  { label: "Top placement", value: stats.byPlacement[0]?.placement ?? "—" },
+  { label: "Top product", value: stats.topProducts[0]?.name ?? stats.topProducts[0]?.id ?? "—" },
+];
+const placementLabel = (p: string | null) => p ?? "(none)";
+---
+
+<AdminLayout title="Affiliate clicks">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <p class="text-sm text-muted">Outbound affiliate clicks through the <code class="rounded bg-surface-2 px-1">/go</code> tracker, last {days} days.</p>
+    <div class="flex gap-1.5">
+      {
+        ranges.map((r) => (
+          <a
+            href={`/admin/clicks?days=${r}`}
+            class={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${r === days ? "bg-accent text-accent-contrast" : "border border-line hover:bg-surface-2"}`}
+          >
+            {r}d
+          </a>
+        ))
+      }
+    </div>
+  </div>
+
+  <div class="mt-6 grid gap-4 sm:grid-cols-3">
+    {
+      cards.map((c) => (
+        <div class="rounded-xl border border-line bg-surface p-5">
+          <p class="text-sm text-muted">{c.label}</p>
+          <p class="mt-1 truncate font-display text-2xl font-bold" title={String(c.value)}>{c.value}</p>
+        </div>
+      ))
+    }
+  </div>
+
+  {
+    stats.total === 0 ? (
+      <p class="mt-10 rounded-xl border border-dashed border-line p-10 text-center text-muted">
+        No clicks tracked yet. Once readers click buy links, conversions by product, placement, and article show up here.
+      </p>
+    ) : (
+      <>
+        <h2 class="mt-10 font-display text-lg font-bold">Clicks per day</h2>
+        <div class="mt-3 flex h-32 items-end gap-1 rounded-xl border border-line bg-surface p-4">
+          {stats.byDay.map((d) => (
+            <div class="group relative flex-1" title={`${d.d}: ${d.n}`}>
+              <div
+                class="rounded-t bg-accent transition group-hover:brightness-110"
+                style={`height:${Math.max(2, Math.round((d.n / maxDay) * 96))}px`}
+              />
+            </div>
+          ))}
+        </div>
+
+        <div class="mt-8 grid gap-6 lg:grid-cols-2">
+          <section>
+            <h2 class="font-display text-lg font-bold">Top products</h2>
+            <div class="mt-3 overflow-hidden rounded-xl border border-line bg-surface">
+              <table class="w-full text-sm">
+                <tbody>
+                  {stats.topProducts.map((r) => (
+                    <tr class="border-t border-line first:border-t-0">
+                      <td class="p-3">
+                        <a href={`/admin/products/${r.id}`} class="font-medium hover:text-accent-strong">
+                          {r.name ?? r.id}
+                        </a>
+                      </td>
+                      <td class="p-3 text-right font-semibold tabular-nums">{r.n}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section>
+            <h2 class="font-display text-lg font-bold">By placement</h2>
+            <div class="mt-3 overflow-hidden rounded-xl border border-line bg-surface">
+              <table class="w-full text-sm">
+                <tbody>
+                  {stats.byPlacement.map((r) => (
+                    <tr class="border-t border-line first:border-t-0">
+                      <td class="p-3 text-ink-soft">{placementLabel(r.placement)}</td>
+                      <td class="p-3 text-right font-semibold tabular-nums">{r.n}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section>
+            <h2 class="font-display text-lg font-bold">Top articles</h2>
+            <div class="mt-3 overflow-hidden rounded-xl border border-line bg-surface">
+              <table class="w-full text-sm">
+                <tbody>
+                  {stats.bySource.map((r) => (
+                    <tr class="border-t border-line first:border-t-0">
+                      <td class="p-3">
+                        {r.path ? (
+                          <a href={r.path} class="font-medium hover:text-accent-strong">{r.path}</a>
+                        ) : (
+                          <span class="text-muted">(unknown)</span>
+                        )}
+                      </td>
+                      <td class="p-3 text-right font-semibold tabular-nums">{r.n}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {stats.topPrograms.length > 0 && (
+            <section>
+              <h2 class="font-display text-lg font-bold">Top programs</h2>
+              <div class="mt-3 overflow-hidden rounded-xl border border-line bg-surface">
+                <table class="w-full text-sm">
+                  <tbody>
+                    {stats.topPrograms.map((r) => (
+                      <tr class="border-t border-line first:border-t-0">
+                        <td class="p-3 font-medium">{r.name ?? r.id}</td>
+                        <td class="p-3 text-right font-semibold tabular-nums">{r.n}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+        </div>
+      </>
+    )
+  }
+</AdminLayout>
