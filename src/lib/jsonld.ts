@@ -2,6 +2,16 @@ import type { Author, ContentFull, Product } from "./types";
 
 type Ld = Record<string, unknown>;
 
+function addDaysIso(days: number): string {
+  return new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+}
+/** A cached price is trustworthy enough for structured data only if recently observed. */
+function isFreshPrice(observedAt: string | null): boolean {
+  if (!observedAt) return false;
+  const t = Date.parse(observedAt);
+  return !isNaN(t) && Date.now() - t < 90 * 86_400_000;
+}
+
 export function breadcrumbLd(crumbs: { name: string; url: string }[]): Ld {
   return {
     "@context": "https://schema.org",
@@ -25,11 +35,15 @@ export function productLd(p: Product, origin: string, opts: { withContext?: bool
   if (p.description) ld.description = p.description;
   // schema.org image must be absolute; internalized images are stored as /img/... paths.
   if (p.imageUrl) ld.image = new URL(p.imageUrl, origin).toString();
-  if (p.priceCents != null && p.buyUrl) {
+  // Only advertise a price in structured data when it's recent enough to trust:
+  // there's no auto price refresh, so a stale price risks a Google price-mismatch.
+  if (p.priceCents != null && p.buyUrl && isFreshPrice(p.priceObservedAt)) {
     ld.offers = {
       "@type": "Offer",
       price: (p.priceCents / 100).toFixed(2),
       priceCurrency: p.currency,
+      priceValidUntil: addDaysIso(30),
+      itemCondition: "https://schema.org/NewCondition",
       availability: "https://schema.org/InStock",
       url: p.buyUrl,
     };
@@ -43,6 +57,9 @@ function authorLd(author: Author | null, origin: string): Ld {
     "@type": "Person",
     name: author.name,
     url: `${origin}/about`,
+    ...(author.title ? { jobTitle: author.title } : {}),
+    ...(author.bio ? { description: author.bio } : {}),
+    worksFor: { "@type": "Organization", name: "Tech From Alex", url: origin },
     ...(author.sameAs.length ? { sameAs: author.sameAs } : {}),
   };
 }

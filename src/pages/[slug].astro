@@ -137,7 +137,11 @@ if (content.type === "howto") {
       </h1>
       {content.dek && <p class="mt-4 text-lg leading-relaxed text-ink-soft">{content.dek}</p>}
       <div class="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
-        {author && <span class="font-medium text-ink-soft">By {author.name}</span>}
+        {author && (
+          <a href="/about" class="font-medium text-ink-soft transition hover:text-accent-strong">
+            By {author.name}{author.title ? `, ${author.title}` : ""}
+          </a>
+        )}
         {content.publishedAt && (
           <>
             <span aria-hidden="true">·</span>
