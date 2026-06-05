@@ -61,7 +61,7 @@ const TEMPLATES: Record<
     schema: envelope({
       type: "object",
       additionalProperties: false,
-      required: ["productId", "verdictScore", "verdictSummary", "scorecard", "whoItsFor", "whoItsNot"],
+      required: ["productId", "verdictScore", "verdictSummary", "whoItsFor", "whoItsNot"],
       properties: {
         productId: { type: "string" },
         verdictScore: { type: "number" },
