@@ -166,6 +166,18 @@ export async function renderBody(
         parent.children.splice(index, 1, ...(labelChildren as RootContent[]));
       }
     }
+    // Any OTHER inline :directive is accidental (e.g. the ":4" inside "4:4:4" or a
+    // ratio like "16:9"); render it as literal text instead of an empty element.
+    if (
+      node.type === "textDirective" &&
+      (node as DirectiveNode).name !== "product" &&
+      parent &&
+      typeof index === "number"
+    ) {
+      const dir = node as DirectiveNode;
+      const label = dir.children?.length ? mdToString(dir) : "";
+      parent.children.splice(index, 1, { type: "text", value: ":" + dir.name + label } as RootContent);
+    }
   });
 
   // Pass 2: split top-level blocks into html segments + embed segments.
