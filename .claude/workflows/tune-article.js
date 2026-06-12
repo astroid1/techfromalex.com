@@ -1,7 +1,7 @@
 export const meta = {
   name: 'tune-article',
   description: 'Audit a published techfromalex.com article and PROPOSE fine-tuning (free Unsplash hero image, copy/tone polish, SEO, fact-check + flagged fixes). Proposes only; never writes to the live site.',
-  whenToUse: 'Fine-tune a techfromalex.com article. Pass args = { slug, capabilities?: ["hero","copy","seo","factcheck"], note?: string }. Loads the article from D1 by slug and returns a structured proposal to review; the operator applies approved parts to D1 afterward. Runs free on the Claude subscription (no Apify, no billed site API).',
+  whenToUse: 'Fine-tune a techfromalex.com article. Pass args = { slug, capabilities?: ["hero","copy","seo","factcheck"], note?: string }. Loads the article from D1 by slug and returns a structured proposal to review. Apply approved parts by saving { slug, edits: [{before,after}], set: { seo_title?, seo_description?, hero_image_url?, hero_alt? } } to a JSON file and running: node scripts/apply-edits.mjs <file> --remote (verifies edits against the current body and resyncs search). Runs free on the Claude subscription (no Apify, no billed site API).',
   phases: [{ title: 'Load' }, { title: 'Audit' }],
 }
 

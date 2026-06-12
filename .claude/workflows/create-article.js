@@ -1,8 +1,8 @@
 export const meta = {
   name: 'create-article',
-  description: 'Create a full techfromalex.com article from a brief (topic + type + optional brief + optional products). Researches and verifies real Amazon products (or verifies the ones you supply), writes the full article in the site format, finds a free Unsplash hero, and returns a PROPOSAL. Never writes to the site; the operator seeds the approved draft.',
-  whenToUse: 'Generate a new article on demand. args = { topic, type: "roundup"|"review"|"comparison"|"howto", brief?, products?: [{name?,asin?,url?}] }. If products are supplied they are used and verified; otherwise products are auto-researched. Returns { article, products, hero } to review; the operator seeds it as a draft. Free on the Claude subscription (no Apify, no billed site API).',
-  phases: [{ title: 'Research' }, { title: 'Verify' }, { title: 'Write' }],
+  description: 'Create a full techfromalex.com article from a brief AND/OR intake media (YouTube video, pasted transcript, web pages, raw notes, product list). Distills the source material, researches and verifies real Amazon products, writes the full article in the site format (optionally with sponsored ::promo placements), finds a free Unsplash hero, and returns a PROPOSAL. Never writes to the site; seed the approved draft with: node scripts/seed-article.mjs <proposal.json> --remote.',
+  whenToUse: 'Generate a new article on demand. args = { topic, type: "roundup"|"review"|"comparison"|"howto", brief?, products?: [{name?,asin?,url?}], source?: { youtubeUrl?, transcript?, urls?: [string], notes? }, sponsor?: { programId, name?, instructions? } }. Any combination of source inputs is fine; they are distilled into grounding facts. sponsor.programId must be an existing programs.id in D1 (e.g. "make"). Returns { article, products, hero, intake } to review; seed via scripts/seed-article.mjs. Free on the Claude subscription (no Apify, no billed site API).',
+  phases: [{ title: 'Intake' }, { title: 'Research' }, { title: 'Verify' }, { title: 'Write' }],
 }
 
 const a = args || {}
@@ -10,6 +10,9 @@ const topic = a.topic
 const type = a.type
 const brief = a.brief || ''
 const supplied = Array.isArray(a.products) ? a.products : []
+const source = a.source && typeof a.source === 'object' ? a.source : null
+const hasSource = !!(source && (source.youtubeUrl || source.transcript || (source.urls || []).length || source.notes))
+const sponsor = a.sponsor && a.sponsor.programId ? a.sponsor : null
 const TYPES = ['roundup', 'review', 'comparison', 'howto']
 if (!topic) throw new Error('create-article requires args.topic')
 if (!TYPES.includes(type)) throw new Error('create-article requires args.type one of: ' + TYPES.join(', '))
@@ -138,6 +141,46 @@ const ARTICLE_SCHEMA = {
   },
 }
 
+const INTAKE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['summary', 'keyFacts', 'productsMentioned', 'suggestedAngle', 'cautions'],
+  properties: {
+    summary: { type: 'string', description: '200-400 word distillation of the source material in your own words' },
+    keyFacts: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['fact', 'source'], properties: { fact: { type: 'string' }, source: { type: 'string', description: 'where this fact came from (url or "notes"/"transcript")' } } } },
+    productsMentioned: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['name', 'brand', 'context'], properties: { name: { type: 'string' }, brand: { type: ['string', 'null'] }, url: { type: ['string', 'null'] }, asin: { type: ['string', 'null'] }, context: { type: 'string', description: 'what the source said about it, good and bad' } } } },
+    suggestedAngle: { type: 'string' },
+    cautions: { type: 'array', items: { type: 'string' }, description: 'claims in the source that look promotional, sponsored, outdated, or unverifiable' },
+  },
+}
+
+let intake = null
+if (hasSource) {
+  phase('Intake')
+  intake = await agent(
+    [
+      'You are doing INTAKE for a techfromalex.com article (' + type + ') about: ' + topic,
+      brief ? ('Operator brief: ' + brief) : '',
+      '',
+      'Source material to ingest:',
+      source.youtubeUrl ? ('- YouTube video: ' + source.youtubeUrl + ' . Get its transcript and metadata. Try WebFetch on the watch page first, then free transcript mirrors (e.g. youtubetotranscript.com, downsub, tactiq) found via WebSearch. If no transcript is reachable, work from the video title, description, top comments, and coverage of the same video found via WebSearch, and add a caution that the transcript was unavailable.') : '',
+      source.transcript ? ('- Pasted transcript (verbatim, treat as the video content):\n' + String(source.transcript).slice(0, 80000)) : '',
+      ...((source.urls || []).map((u) => '- Web page to read with WebFetch: ' + u)),
+      source.notes ? ('- Operator notes:\n' + source.notes) : '',
+      '',
+      'Distill, do not copy: summarize the material in your own words, extract concrete reusable facts (specs, measurements, test results, prices, failure modes) each tagged with its source, and list every product mentioned with the context around it (include an ASIN or product URL only if the source actually gave one).',
+      'IGNORE and flag as cautions: sponsor reads, discount codes, "link in description" CTAs, affiliate pitches, and any claim that smells paid or unverifiable. The blog must never repeat those.',
+      'Suggest the strongest angle for our article given this material and the operator brief.',
+    ].filter(Boolean).join('\n'),
+    { label: 'intake', phase: 'Intake', agentType: 'general-purpose', schema: INTAKE_SCHEMA },
+  )
+  log('Intake: ' + intake.keyFacts.length + ' facts, ' + intake.productsMentioned.length + ' products mentioned' + (intake.cautions.length ? ', ' + intake.cautions.length + ' cautions' : '') + '.')
+}
+
+const intakeForResearch = intake
+  ? 'Source material was ingested. Summary: ' + intake.summary + '\nProducts mentioned in the source (verify independently; prefer them when they genuinely fit, but you may swap in better alternatives unless type=review): ' + JSON.stringify(intake.productsMentioned) + '\nCautions about the source: ' + intake.cautions.join(' | ')
+  : ''
+
 phase('Research')
 const productsRes = await agent(
   [
@@ -145,6 +188,7 @@ const productsRes = await agent(
     '',
     'Research products for a "' + type + '" article on techfromalex.com about: ' + topic,
     brief ? ('Operator brief: ' + brief) : '',
+    intakeForResearch,
     supplied.length ? ('The operator supplied these products to use (verify each and fill in all details): ' + JSON.stringify(supplied)) : 'No products supplied; find the best real ones yourself.',
     countGuide[type],
     'For each product return: name, brand, a short product-category word, the REAL ASIN, the amazonUrl you found it at, current approx US price, Amazon star rating and review count, an image URL if you can find a direct Amazon CDN one (else null), 3-5 pros and 2-4 cons grounded in real reviews, key specs, and a rank plus an award (e.g. Best Overall, Best Budget), a bestFor, and a one to two sentence rationale grounded in reviews. (For a single review, rank 1 and award like "Our Verdict" is fine.) Use WebSearch/WebFetch. confidence=high only if you located the real dp URL carrying that ASIN. List sources. Return an empty products array only if this is a pure explainer with no relevant products.',
@@ -204,6 +248,24 @@ const productsForWrite = withIds.map((p) => ({
   award: p.award, bestFor: p.bestFor, rationale: p.rationale, pros: p.pros, cons: p.cons, specs: p.specs,
 }))
 
+const sponsorBlock = sponsor
+  ? [
+      'SPONSORED PLACEMENT. This article carries a sponsored program: ' + JSON.stringify(sponsor) + '.',
+      'Place the directive ::promo{id="' + sponsor.programId + '"} on its own line at ONE natural, relevant spot in the body (it renders the sponsor CTA block; never write the sponsor link yourself).',
+      'Mention the sponsor honestly where it genuinely helps the reader; never let the sponsorship distort product picks, verdicts, or scores.',
+      sponsor.instructions ? ('Sponsor instructions from the operator: ' + sponsor.instructions) : '',
+    ].filter(Boolean).join('\n')
+  : ''
+
+const groundingBlock = intake
+  ? [
+      'SOURCE GROUNDING. This article is based on ingested source material. Use these distilled facts as your evidence base:',
+      'Summary: ' + intake.summary,
+      'Key facts: ' + JSON.stringify(intake.keyFacts),
+      'RULES: write 100% original prose (never copy the source phrasing). Attribute experience honestly: do NOT invent first-person hands-on anecdotes for tests you did not run; write evidence-led ("in testing", "reviewers consistently report", "the maker rates it at") instead. Never repeat sponsor reads, discount codes, or promotional claims flagged in the cautions: ' + intake.cautions.join(' | '),
+    ].join('\n')
+  : ''
+
 const writePrompt = [
   'Write a complete techfromalex.com article.',
   'Topic: ' + topic,
@@ -213,6 +275,9 @@ const writePrompt = [
   FORMAT,
   '',
   'TYPE GUIDE: ' + TYPE_GUIDE[type],
+  '',
+  groundingBlock,
+  sponsorBlock,
   '',
   productsForWrite.length
     ? 'Use ONLY these products. Reference each by its EXACT id in ::product-card{id}, ::buy-button{id}, :product[label]{id}, :::comparison{ids}, and in structured. Do not invent products, ids, prices, or specs beyond what is given:\n' + JSON.stringify(productsForWrite)
@@ -226,7 +291,7 @@ const [hero, article] = await parallel([
   () => agent(writePrompt, { label: 'write', phase: 'Write', schema: ARTICLE_SCHEMA }),
 ])
 
-log('Drafted "' + (article && article.title) + '" (' + type + ', ' + withIds.length + ' products, mode ' + productMode + ').')
+log('Drafted "' + (article && article.title) + '" (' + type + ', ' + withIds.length + ' products, mode ' + productMode + (hasSource ? ', source-grounded' : '') + (sponsor ? ', sponsored: ' + sponsor.programId : '') + ').')
 return {
   topic,
   type,
@@ -235,5 +300,7 @@ return {
   article,
   products: withIds,
   hero,
+  intake,
+  sponsor,
   dropped: products.length - verified.length,
 }
