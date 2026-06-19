@@ -16,6 +16,23 @@ function parseCookie(header: string | null, name: string): string | null {
   return null;
 }
 
+/** Constant-time string compare (avoids leaking length-independent timing). */
+function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let out = 0;
+  for (let i = 0; i < a.length; i++) out |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return out === 0;
+}
+
+/** Machine bearer token (central dashboard) for /api/admin. Only honored when
+ *  DASHBOARD_ADMIN_TOKEN is configured; otherwise machine access is disabled. */
+function machineAuthed(request: Request, token: string | undefined): boolean {
+  if (!token) return false;
+  const hdr = request.headers.get("Authorization") ?? "";
+  const m = hdr.match(/^Bearer\s+(.+)$/i);
+  return Boolean(m && safeEqual(m[1].trim(), token.trim()));
+}
+
 export const onRequest = defineMiddleware(async (ctx, next) => {
   const url = new URL(ctx.request.url);
   if (!ADMIN_RE.test(url.pathname)) return next();
@@ -28,6 +45,21 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   // Local-dev bypass (only ever set in .dev.vars, never in the deployed Worker).
   if (env?.DEV_AUTH_BYPASS === "1") {
     ctx.locals.user = { email: ALLOWED ?? "dev@local", name: "Alex (dev)", sub: "dev" };
+    return next();
+  }
+
+  // Machine access: the central Astroid dashboard calls /api/admin endpoints
+  // with a shared bearer token. Scoped to the API namespace only — never the
+  // interactive /admin HTML pages.
+  if (
+    url.pathname.startsWith("/api/admin") &&
+    machineAuthed(ctx.request, env?.DASHBOARD_ADMIN_TOKEN)
+  ) {
+    ctx.locals.user = {
+      email: ALLOWED ?? "dashboard@astroidmedia.com",
+      name: "Dashboard",
+      sub: "machine",
+    };
     return next();
   }
 

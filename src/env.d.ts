@@ -23,6 +23,9 @@ interface Env {
   CF_ACCESS_TEAM_DOMAIN?: string;
   CF_ACCESS_AUD?: string;
   DEV_AUTH_BYPASS?: string;
+  // Shared bearer secret for machine access to /api/admin from the central
+  // Astroid dashboard. When unset, machine access is disabled (fail closed).
+  DASHBOARD_ADMIN_TOKEN?: string;
 }
 
 type Runtime = import("@astrojs/cloudflare").Runtime<Env>;
